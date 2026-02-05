@@ -1,0 +1,11 @@
+# Ignore PlatformIO build files
+firmware/.pio
+
+# Ignore editor config files
+.vscode/
+.idea/
+*.code-workspace
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db

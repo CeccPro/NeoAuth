@@ -1,0 +1,177 @@
+            CeccPro Confidential Software License Agreement
+                    NeoAuth – RFID Authentication System
+                        Version 1.0 – January 2026
+            Copyright (c) 2025–2026 CeccPro. All rights reserved.
+
+================================================================================
+                                1. DEFINITIONS
+================================================================================
+
+1.1 "Licensee" means any person, entity, or organization that obtains access to
+    or uses the Software.
+
+1.2 "Licensor" means CeccPro, the copyright holder and owner of the Software.
+
+1.3 "Software" means this software and associated documentation files,
+    including but not limited to source code, object code, firmware, and
+    related materials.
+
+================================================================================
+                              2. IMPORTANT NOTICE
+================================================================================
+
+This Software is proprietary and confidential. Unauthorized copying,
+distribution, modification, public display, or public performance of this
+Software, via any medium, is strictly prohibited.
+
+================================================================================
+                             3. GRANT OF LICENSE
+================================================================================
+
+This Software is licensed, not sold.
+
+Subject to the terms of this Agreement and under a separate signed license
+agreement (where applicable), Licensor grants Licensee a limited,
+non-exclusive, non-transferable, revocable license to use the Software solely
+for the purposes expressly authorized in said agreement.
+
+By installing, accessing, or using the Software, Licensee acknowledges that
+they have read, understood, and agree to be bound by the terms and conditions
+of this Agreement.
+
+================================================================================
+                                  4. RESTRICTIONS
+================================================================================
+
+Licensee may NOT, without explicit prior written permission from Licensor:
+
+4.1 Copy, modify, adapt, translate, or create derivative works based on the
+    Software or any part thereof, except for reasonable backup copies made for
+    Licensee's internal use.
+
+4.2 Reverse engineer, decompile, disassemble, or otherwise attempt to discover
+    the source code or underlying algorithms of the Software, except to the
+    extent such restriction is prohibited by applicable law.
+
+4.3 Rent, lease, loan, sublicense, distribute, transfer, or otherwise make the
+    Software available to any third party.
+
+4.4 Remove, alter, or obscure any proprietary notices (including copyright and
+    trademark notices) on or in the Software.
+
+4.5 Use the Software for any purpose other than as expressly authorized in
+    Licensee's signed license agreement.
+
+4.6 Publish, share, or make available the Software or its source code in any
+    public repository, forum, communication channel, or through unauthorized
+    sharing with third parties, except authorized personnel within Licensee’s
+    organization who require access for permitted use.
+
+================================================================================
+                                  5. OWNERSHIP
+================================================================================
+
+The Software is owned by Licensor and is protected by copyright laws and
+international treaty provisions.
+
+Licensor retains all rights, title, and interest in and to the Software,
+including all intellectual property rights therein.
+
+================================================================================
+                       6. EDUCATIONAL AND COMMERCIAL USE
+================================================================================
+
+This Software is designed for educational institutions and may be licensed for
+commercial use.
+
+Each installation or deployment requires a separate signed license agreement
+with Licensor. Contact Licensor for licensing terms and pricing.
+
+================================================================================
+                                7. CONFIDENTIALITY
+================================================================================
+
+Licensee agrees that the Software constitutes confidential and proprietary
+information of Licensor.
+
+Licensee shall not disclose, provide, or otherwise make the Software available
+to any third party without prior written consent from Licensor.
+
+================================================================================
+                                  8. TERMINATION
+================================================================================
+
+This Agreement is effective until terminated.
+
+Licensee's rights under this Agreement will terminate automatically without
+notice if Licensee fails to comply with any of its terms.
+
+Upon termination, Licensee must immediately cease all use of the Software and
+destroy all copies reasonably accessible in Licensee's possession or control.
+
+================================================================================
+                                9. NO WARRANTY
+================================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM THE USE OR INABILITY TO USE THE SOFTWARE.
+
+LICENSOR IS NOT OBLIGATED TO PROVIDE UPDATES, MAINTENANCE, OR SUPPORT UNLESS
+EXPRESSLY AGREED IN WRITING.
+
+================================================================================
+                        10. LIMITATION OF LIABILITY
+================================================================================
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR
+CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR
+LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION,
+OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR INABILITY TO USE THE
+SOFTWARE.
+
+================================================================================
+                                11. ASSIGNMENT
+================================================================================
+
+Licensee may not assign or transfer this Agreement or any rights hereunder
+without the prior written consent of Licensor.
+
+================================================================================
+                              12. SEVERABILITY
+================================================================================
+
+If any provision of this Agreement is held invalid or unenforceable, the
+remainder of this Agreement shall remain in full force and effect.
+
+================================================================================
+                            13. CONTACT INFORMATION
+================================================================================
+
+For licensing inquiries, support, or permissions, please contact:
+
+CeccPro  
+GitHub: @CeccPro  
+Email: carlos.caz1214@gmail.com (business inquiries only)
+
+================================================================================
+                        14. GOVERNING LAW AND JURISDICTION
+================================================================================
+
+This Agreement shall be governed by and construed in accordance with the laws
+of Mexico, without regard to its conflict of law provisions.
+
+Any disputes arising from this Agreement shall be subject to the exclusive
+jurisdiction of the courts of Mexico.
+
+================================================================================
+                                15. ENTIRE AGREEMENT
+================================================================================
+
+This Agreement constitutes the entire agreement between Licensee and Licensor
+concerning the Software and supersedes any prior agreements or understandings.
+
+================================================================================
