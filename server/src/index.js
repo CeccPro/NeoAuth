@@ -178,7 +178,24 @@ app.post('/api/v1/access', authenticateSensor, async (req, res) => {
     .eq('is_active', true)
     .single();
 
-  const accessGranted = !cardError && card && card.users?.is_active;
+  // Logging para debug
+  console.log('Card query result:', { card, cardError });
+  
+  // Determinar razón de denegación
+  let denialReason = '';
+  let accessGranted = false;
+  
+  if (cardError) {
+    denialReason = 'Card not found or inactive';
+  } else if (!card) {
+    denialReason = 'Card not found';
+  } else if (!card.users) {
+    denialReason = 'User not found for this card';
+  } else if (!card.users.is_active) {
+    denialReason = 'User is inactive';
+  } else {
+    accessGranted = true;
+  }
 
   // Registrar evento
   await supabase.from('access_logs').insert({
@@ -187,13 +204,15 @@ app.post('/api/v1/access', authenticateSensor, async (req, res) => {
     user_id: card?.user_id || null,
     access_granted: accessGranted,
     mode: 'turnstile',
-    timestamp: timestamp || new Date().toISOString()
+    timestamp: timestamp || new Date().toISOString(),
+    metadata: { denial_reason: denialReason || 'Access granted' }
   });
 
   if (!accessGranted) {
+    console.log('Access denied:', denialReason);
     return res.json({
       status: 'denied',
-      message: 'Access denied - Card not authorized',
+      message: denialReason,
       uid
     });
   }
