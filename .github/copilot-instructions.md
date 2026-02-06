@@ -140,8 +140,8 @@ See `server/sql_migrations/20260205_001_initial_schema.sql` for complete schema.
 5. **PlatformIO Paths**: Build system uses `~/.platformio/penv/bin/platformio` (hardcoded in Makefiles).
 
 ## File References
-- Core firmware: [main.cpp](firmware/src/main.cpp)
-- API server: [index.js](server/src/index.js)
-- Configuration: [config.h](firmware/include/config.h), [config.json](firmware/data/config.json)
-- Build commands: [Makefile](Makefile), [firmware/Makefile](firmware/Makefile)
-- Web UI: [firmware/data/index.html](firmware/data/index.html)
+- Core firmware: [main.cpp](../firmware/src/main.cpp)
+- API server: [index.js](../server/src/index.js)
+- Configuration: [config.h](../firmware/include/config.h), [config.json](../firmware/data/config.json)
+- Build commands: [Makefile](../Makefile), [firmware/Makefile](../firmware/Makefile)
+- Web UI: [firmware/data/index.html](../firmware/data/index.html)

@@ -121,6 +121,27 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * GET /api/v1/time
+ * Devuelve la hora actual del servidor con timezone
+ */
+app.get('/api/v1/time', (req, res) => {
+  const now = new Date();
+  
+  // Ajustar a timezone de México (UTC-6)
+  const mexicoTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  
+  res.json({
+    status: 'ok',
+    timestamp: now.toISOString(),
+    time: mexicoTime.toTimeString().split(' ')[0], // "HH:MM:SS"
+    date: mexicoTime.toISOString().split('T')[0],   // "YYYY-MM-DD"
+    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'lowercase' }), // "monday"
+    timezone: 'America/Mexico_City',
+    unix: Math.floor(now.getTime() / 1000)
+  });
+});
+
+/**
  * POST /api/v1/heartbeat
  * Recibe heartbeat de sensores
  */
@@ -223,7 +244,8 @@ app.post('/api/v1/access', authenticateSensor, async (req, res) => {
     uid,
     user: {
       id: card.users.id,
-      name: card.users.name
+      name: card.users.name,
+      metadata: card.users.metadata || {}
     }
   });
 });
@@ -292,6 +314,130 @@ app.post('/api/v1/who_is', authenticateSensor, async (req, res) => {
       name: card.users.name,
       email: card.users.email,
       metadata: card.users.metadata
+    }
+  });
+});
+
+/**
+ * POST /api/v1/reports
+ * Crear reporte para un usuario
+ */
+app.post('/api/v1/reports', authenticateSensor, async (req, res) => {
+  const { sensor_id, uid, report_type, severity, description, metadata } = req.body;
+
+  if (!uid || !report_type || !description) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Missing required parameters: uid, report_type, description'
+    });
+  }
+
+  // Validar report_type
+  const validTypes = ['late_entry', 'early_departure', 'manual_report', 'multiple_entry_attempt'];
+  if (!validTypes.includes(report_type)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Invalid report_type. Must be one of: ' + validTypes.join(', ')
+    });
+  }
+
+  // Validar severity
+  const validSeverities = ['info', 'warning', 'critical'];
+  const reportSeverity = severity || 'warning';
+  if (!validSeverities.includes(reportSeverity)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Invalid severity. Must be one of: ' + validSeverities.join(', ')
+    });
+  }
+
+  // Buscar usuario por UID de tarjeta
+  const { data: card, error: cardError } = await supabase
+    .from('rfid_cards')
+    .select('user_id')
+    .eq('uid', uid)
+    .single();
+
+  if (cardError || !card) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Card not found - cannot create report without user_id'
+    });
+  }
+
+  // Crear reporte
+  const { data: report, error: reportError } = await supabase
+    .from('reports')
+    .insert({
+      user_id: card.user_id,
+      sensor_id,
+      report_type,
+      severity: reportSeverity,
+      description,
+      metadata: metadata || {},
+      timestamp: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (reportError) {
+    console.error('Error creating report:', reportError);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to create report'
+    });
+  }
+
+  // Si es late_entry o early_departure, actualizar contador de strikes
+  if (report_type === 'late_entry' || report_type === 'early_departure') {
+    // Obtener threshold del metadata del usuario
+    const { data: user } = await supabase
+      .from('users')
+      .select('metadata')
+      .eq('id', card.user_id)
+      .single();
+
+    const threshold = user?.metadata?.strike_if?.[report_type] || 3;
+
+    // Incrementar o crear strike
+    const { data: existingStrike } = await supabase
+      .from('user_strikes')
+      .select('*')
+      .eq('user_id', card.user_id)
+      .eq('strike_type', report_type)
+      .single();
+
+    if (existingStrike) {
+      await supabase
+        .from('user_strikes')
+        .update({
+          count: existingStrike.count + 1,
+          last_strike_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingStrike.id);
+    } else {
+      await supabase
+        .from('user_strikes')
+        .insert({
+          user_id: card.user_id,
+          strike_type: report_type,
+          count: 1,
+          threshold,
+          last_strike_at: new Date().toISOString()
+        });
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    message: 'Report created successfully',
+    report: {
+      id: report.id,
+      user_id: report.user_id,
+      report_type: report.report_type,
+      severity: report.severity,
+      timestamp: report.timestamp
     }
   });
 });

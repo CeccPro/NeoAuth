@@ -13,6 +13,9 @@
 #include <Arduino.h>
 #include <i2c_comm.h>
 #include <api_client.h>
+#include <time_manager.h>
+#include <metadata_parser.h>
+#include <report_manager.h>
 #include <vector>
 #include <set>
 
@@ -30,7 +33,7 @@ namespace TurnstileCmd {
 
 class TurnstileMode {
 public:
-  TurnstileMode(I2CComm* i2cComm, APIClient* apiClient);
+  TurnstileMode(I2CComm* i2cComm, APIClient* apiClient, TimeManager* timeManager, ReportManager* reportManager);
   
   // Inicialización
   void begin();
@@ -62,6 +65,8 @@ public:
 private:
   I2CComm* i2cComm;
   APIClient* apiClient;
+  TimeManager* timeManager;
+  ReportManager* reportManager;
   std::set<String> authorizedCards;
   
   unsigned long autoLockDelay;  // Tiempo antes de auto-bloquear (ms)

@@ -6,8 +6,9 @@
 
 #include "turnstile_mode.h"
 
-TurnstileMode::TurnstileMode(I2CComm* i2cComm, APIClient* apiClient)
-  : i2cComm(i2cComm), apiClient(apiClient), autoLockDelay(5000), unlockTime(0), isUnlocked(false) {
+TurnstileMode::TurnstileMode(I2CComm* i2cComm, APIClient* apiClient, TimeManager* timeManager, ReportManager* reportManager)
+  : i2cComm(i2cComm), apiClient(apiClient), timeManager(timeManager), reportManager(reportManager), 
+    autoLockDelay(5000), unlockTime(0), isUnlocked(false) {
 }
 
 void TurnstileMode::begin() {
@@ -117,13 +118,61 @@ void TurnstileMode::handleCardDetected(const String& uid) {
   if (apiClient && apiClient->isEnabled()) {
     bool accessGranted = false;
     String userName = "";
+    JsonObject userMetadata;
     
-    if (apiClient->validateAccess(uid, accessGranted, userName)) {
+    if (apiClient->validateAccess(uid, accessGranted, userName, userMetadata)) {
       if (accessGranted) {
-        Serial.println("[TurnstileMode] ✓ Access granted for: " + userName);
-        onAccessGranted(uid);
+        Serial.println("[TurnstileMode] ✓ User authorized: " + userName);
+        
+        // Validar horarios con MetadataParser
+        if (!userMetadata.isNull()) {
+          MetadataParser parser(userMetadata);
+          
+          // Admin bypasea validación de horarios
+          if (parser.isAdmin()) {
+            Serial.println("[TurnstileMode] 🔑 Admin - Bypassing schedule checks");
+            onAccessGranted(uid);
+            return;
+          }
+          
+          // Obtener tiempo actual
+          TimeInfo currentTime = timeManager->getCurrentTime();
+          
+          if (currentTime.valid) {
+            String timeHHMM = currentTime.time.substring(0, 5); // "07:30"
+            
+            // Validar entrada
+            ValidationResult result = parser.validateEntry(timeHHMM, currentTime.day);
+            
+            if (result.allowed) {
+              Serial.println("[TurnstileMode] ✓ Entry allowed: " + result.reason);
+              
+              // Verificar si llegó tarde
+              if (result.isLate) {
+                Serial.println("[TurnstileMode] ⚠ Late by " + String(result.minutesLate) + " minutes");
+                
+                // Reportar si está configurado
+                if (parser.shouldReport("late_entry")) {
+                  Serial.println("[TurnstileMode] 📝 Reporting late entry");
+                  reportManager->reportLateEntry(uid, result.minutesLate);
+                }
+              }
+              
+              onAccessGranted(uid);
+            } else {
+              Serial.println("[TurnstileMode] ✗ Outside schedule: " + result.reason);
+              onAccessDenied(uid);
+            }
+          } else {
+            Serial.println("[TurnstileMode] ⚠ Cannot get time - allowing access (fail-open mode)");
+            onAccessGranted(uid);
+          }
+        } else {
+          // No metadata, permitir acceso
+          onAccessGranted(uid);
+        }
       } else {
-        Serial.println("[TurnstileMode] ✗ Access denied");
+        Serial.println("[TurnstileMode] ✗ Access denied by API");
         onAccessDenied(uid);
       }
       return;

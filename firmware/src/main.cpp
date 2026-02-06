@@ -20,6 +20,8 @@
 #include <turnstile_mode.h>
 #include <standalone_mode.h>
 #include <api_client.h>
+#include <time_manager.h>
+#include <report_manager.h>
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -30,8 +32,10 @@ RFIDManager rfidManager(SS_PIN, RST_PIN);
 WebServerManager webServer(WEB_SERVER_PORT);
 ModeManager modeManager;
 APIClient apiClient(RFID_SENSOR_ID, AUTH_SECRET);
+TimeManager timeManager("");  // URL se configura después
+ReportManager reportManager(&apiClient, RFID_SENSOR_ID);
 I2CComm i2cComm(0x08, 26, 25);  // Dirección 0x08, SDA=Pin26, SCL=Pin25
-TurnstileMode turnstileMode(&i2cComm, &apiClient);
+TurnstileMode turnstileMode(&i2cComm, &apiClient, &timeManager, &reportManager);
 StandaloneMode standaloneMode(&apiClient);
 
 // ============================================================================
@@ -247,6 +251,9 @@ void setup() {
     apiClient.setEnabled(apiEnabled);
     tasks[TASK_API_HEARTBEAT].interval = heartbeatInterval;
     
+    // Configurar TimeManager con la misma URL
+    timeManager.setBaseURL(apiBaseURL);
+    
     if (apiEnabled) {
       Serial.println("===========================================");
       Serial.println("API Client configurada");
@@ -260,6 +267,14 @@ void setup() {
         Serial.println("Probando conexión con API...");
         if (apiClient.testConnection()) {
           Serial.println("✓ API conectada correctamente");
+          
+          // Sincronizar tiempo
+          Serial.println("Sincronizando hora con el servidor...");
+          if (timeManager.syncTime()) {
+            Serial.println("✓ Hora sincronizada correctamente");
+          } else {
+            Serial.println("✗ No se pudo sincronizar la hora");
+          }
         } else {
           Serial.println("✗ No se pudo conectar con la API");
         }

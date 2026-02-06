@@ -26,14 +26,18 @@ public:
   
   bool isEnabled() const { return enabled; }
   String getBaseURL() const { return baseURL; }
+  String getAuthToken() const { return authToken; }
   
   // Endpoints
   bool sendHeartbeat();
-  bool validateAccess(const String& uid, bool& accessGranted, String& userName);
-  bool whoIs(const String& uid, bool& found, String& userName, String& userEmail);
+  bool validateAccess(const String& uid, bool& accessGranted, String& userName, JsonObject& userMetadata);
+  bool whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata);
   
   // Test de conectividad
   bool testConnection();
+  
+  // Hacer request genérico (para uso de otros módulos como ReportManager)
+  bool makeRequest(const String& endpoint, const JsonDocument& payload, JsonDocument& response);
 
 private:
   String sensorId;
@@ -47,9 +51,6 @@ private:
   
   // Generar token de autenticación HMAC-SHA256
   String generateAuthToken();
-  
-  // Realizar request HTTP POST
-  bool makeRequest(const String& endpoint, const JsonDocument& payload, JsonDocument& response);
 };
 
 #endif // API_CLIENT_H

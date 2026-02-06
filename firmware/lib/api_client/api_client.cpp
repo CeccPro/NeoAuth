@@ -132,7 +132,7 @@ bool APIClient::sendHeartbeat() {
   return false;
 }
 
-bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& userName) {
+bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& userName, JsonObject& userMetadata) {
   DynamicJsonDocument payload(512);
   payload["sensor_id"] = sensorId;
   payload["auth_token"] = authToken;
@@ -147,6 +147,12 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
     if (status == "ok") {
       accessGranted = true;
       userName = response["user"]["name"] | "Unknown";
+      
+      // Copiar metadata si existe
+      if (!response["user"]["metadata"].isNull()) {
+        userMetadata = response["user"]["metadata"].as<JsonObject>();
+      }
+      
       Serial.println("[APIClient] Access granted for: " + userName);
       return true;
     } else if (status == "denied") {
@@ -163,7 +169,7 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
   return false;
 }
 
-bool APIClient::whoIs(const String& uid, bool& found, String& userName, String& userEmail) {
+bool APIClient::whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata) {
   DynamicJsonDocument payload(512);
   payload["sensor_id"] = sensorId;
   payload["auth_token"] = authToken;
@@ -179,6 +185,7 @@ bool APIClient::whoIs(const String& uid, bool& found, String& userName, String& 
       found = true;
       userName = response["user"]["name"] | "Unknown";
       userEmail = response["user"]["email"] | "";
+      userMetadata = response["user"]["metadata"] | JsonObject();
       Serial.println("[APIClient] User found: " + userName);
       return true;
     } else if (status == "not_found" || status == "inactive") {
