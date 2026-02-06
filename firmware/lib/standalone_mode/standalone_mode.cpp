@@ -84,7 +84,7 @@ void StandaloneMode::handleCardDetected(const String& uid) {
           - Salir tarde no tiene restricciones (el estudiante puede quedarse más tiempo sin problema)
           - entry_cooldown define reglas adicionales para controlar la frecuencia de entradas. En este ejemplo, "once_per_day" significa que el estudiante solo puede entrar una vez al día, incluso si su horario lo permite, y no podrá volver a entrar una vez que salga hasta el día siguiente
       */
-Serial.println("[StandaloneMode] ✓ User identified:");
+      Serial.println("[StandaloneMode] ✓ User identified:");
       Serial.println("  Name: " + userName);
       Serial.println("  Email: " + userEmail);
       
@@ -93,16 +93,20 @@ Serial.println("[StandaloneMode] ✓ User identified:");
         String role = userMetadata["role"] | "N/A";
         String grade = userMetadata["grade"] | "N/A";
         String group = userMetadata["group"] | "N/A";
+        bool isAdmin = userMetadata["is_admin"] | false;
         
         Serial.println("  Role: " + role);
         Serial.println("  Grade: " + grade);
-        Serial.println("  Group: " + group
-        Serial.println("  🔑 Admin - Full access (no time restrictions)");
+        Serial.println("  Group: " + group);
+        
+        if (isAdmin) {
+          Serial.println("  == Admin user ==");
+        }
       }
     } else {
-      Serial.println("[StandaloneMode] ✗ User not found in database");
+      Serial.println("[StandaloneMode] User not found in database");
     }
   } else {
-    Serial.println("[StandaloneMode] ✗ API error - could not identify user");
+    Serial.println("[StandaloneMode] API error - could not identify user");
   }
 }
