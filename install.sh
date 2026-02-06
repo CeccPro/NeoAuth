@@ -50,6 +50,15 @@ if [ "$INSTALL_SERVER" = true ]; then
     # Verificar si Node.js está instalado
     if ! command -v node &> /dev/null; then
         echo "❌ Node.js no está instalado"
+        
+        # Verificar si estamos en Railway o entorno de contenedor (sin sudo)
+        if [ "$RAILWAY_ENVIRONMENT" != "" ] || ! command -v sudo &> /dev/null; then
+            echo "⚠️  Entorno detectado sin privilegios de sudo (Railway/Container)"
+            echo "Node.js debe ser instalado por el runtime del contenedor"
+            echo "Verifica que el Dockerfile o buildpack incluya Node.js"
+            exit 1
+        fi
+        
         echo "Instalando Node.js..."
         
         # Detectar distribución de Linux

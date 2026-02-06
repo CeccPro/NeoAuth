@@ -7,7 +7,7 @@
     }
   ],
   "api": {
-    "base_url": "https://api.ejemplo.com",
+    "base_url": "https://neoauth-production.up.railway.app",
     "enabled": false,
     "heartbeat_interval": 300
   }

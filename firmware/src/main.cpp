@@ -104,14 +104,14 @@ void handleRFIDCheckCard() {
   String uid;
   if (rfidManager.checkForCard(uid)) {
     Serial.println("Tarjeta detectada: " + uid);
-    Notificar al web server
+    // Notificar al web server
     webServer.notifyCardDetected(uid);
     
     // Manejar según el modo activo
     if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
       turnstileMode.handleCardDetected(uid);
     } else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
-      standaloneMode.handle
+      standaloneMode.handleCardDetected(uid);
       webServer.notifyCardDetected(uid);
     }
   }
@@ -204,10 +204,7 @@ void setup() {
     poweroff(2);
     for(;;);
   }
-  case TASK_API_HEARTBEAT:
-          handleAPIHeartbeat();
-          break;
-        
+  
   // Ahora inicializar ModeManager (requiere SPIFFS montado y ConfigManager)
   Serial.println("Inicializando Mode Manager");
   modeManager = ModeManager(&configManager);
@@ -230,11 +227,13 @@ void setup() {
   Serial.println("Inicializando WiFi...");
   wifiManager.begin();
   
-  // Si el modo es torniquete, inicializar I2C y Turnstile
+  // Inicializar el modo correspondiente
   if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
     Serial.println("Modo torniquete activo - inicializando I2C");
     i2cComm.begin();
-    else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
+    turnstileMode.begin();
+  } else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
+    Serial.println("Modo standalone activo - inicializando modo identificación");
     standaloneMode.begin();
   }
   
@@ -271,10 +270,7 @@ void setup() {
   Serial.println("===========================================");
   Serial.println("Sistema inicializado");
   Serial.println("Modo actual: " + modeManager.getCurrentModeString());
-  Serial.println("===========================================");;
-  Serial.println("Sistema inicializado");
-  Serial.println("Modo actual: " + modeManager.getCurrentModeString());
-  Serial.println("===========================================");;
+  Serial.println("===========================================");
   
   // Configurar referencias antes de inicializar web server
   webServer.setModeManager(&modeManager);
