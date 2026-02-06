@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2026 CeccPro. All rights reserved.
+ * Filename: api_client.h
+ * Author: CeccPro
+ * 
+ * Description:
+ *   API Client for NeoAuth - Handles communication with remote server
+ */
+
+#ifndef API_CLIENT_H
+#define API_CLIENT_H
+
+#include <Arduino.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
+
+class APIClient {
+public:
+  APIClient(const String& sensorId, const String& authSecret);
+  
+  // Configuración
+  void setBaseURL(const String& url);
+  void setEnabled(bool enabled);
+  void setTimeout(unsigned long timeoutMs);
+  
+  bool isEnabled() const { return enabled; }
+  String getBaseURL() const { return baseURL; }
+  
+  // Endpoints
+  bool sendHeartbeat();
+  bool validateAccess(const String& uid, bool& accessGranted, String& userName);
+  bool whoIs(const String& uid, bool& found, String& userName, String& userEmail);
+  
+  // Test de conectividad
+  bool testConnection();
+
+private:
+  String sensorId;
+  String authSecret;
+  String baseURL;
+  String authToken;
+  bool enabled;
+  unsigned long timeout;
+  
+  WiFiClientSecure wifiClient;
+  
+  // Generar token de autenticación HMAC-SHA256
+  String generateAuthToken();
+  
+  // Realizar request HTTP POST
+  bool makeRequest(const String& endpoint, const JsonDocument& payload, JsonDocument& response);
+};
+
+#endif // API_CLIENT_H

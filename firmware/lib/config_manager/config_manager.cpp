@@ -164,3 +164,81 @@ bool ConfigManager::setMode(const String& mode) {
   configFile.close();
   return true;
 }
+
+String ConfigManager::getAPIBaseURL() {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) return "";
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error || !doc.containsKey("api")) return "";
+  
+  return doc["api"]["base_url"] | "";
+}
+
+bool ConfigManager::getAPIEnabled() {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) return false;
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error || !doc.containsKey("api")) return false;
+  
+  return doc["api"]["enabled"] | false;
+}
+
+unsigned long ConfigManager::getAPIHeartbeatInterval() {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) return 300000; // Default: 5 minutos
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error || !doc.containsKey("api")) return 300000;
+  
+  return (doc["api"]["heartbeat_interval"] | 300) * 1000; // Convertir segundos a ms
+}
+
+bool ConfigManager::setAPIConfig(const String& baseURL, bool enabled, unsigned long heartbeatInterval) {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json");
+    return false;
+  }
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error) {
+    Serial.println("[ConfigManager] Error parsing config.json");
+    return false;
+  }
+  
+  // Actualizar configuración de API
+  JsonObject api = doc.createNestedObject("api");
+  api["base_url"] = baseURL;
+  api["enabled"] = enabled;
+  api["heartbeat_interval"] = heartbeatInterval / 1000; // Guardar en segundos
+  
+  // Guardar
+  configFile = SPIFFS.open(configFilePath, "w");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json for writing");
+    return false;
+  }
+  
+  if (serializeJson(doc, configFile) == 0) {
+    Serial.println("[ConfigManager] Error writing config.json");
+    configFile.close();
+    return false;
+  }
+  
+  configFile.close();
+  return true;
+}

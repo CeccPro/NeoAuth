@@ -6,8 +6,8 @@
 
 #include "turnstile_mode.h"
 
-TurnstileMode::TurnstileMode(I2CComm* i2cComm)
-  : i2cComm(i2cComm), autoLockDelay(5000), unlockTime(0), isUnlocked(false) {
+TurnstileMode::TurnstileMode(I2CComm* i2cComm, APIClient* apiClient)
+  : i2cComm(i2cComm), apiClient(apiClient), autoLockDelay(5000), unlockTime(0), isUnlocked(false) {
 }
 
 void TurnstileMode::begin() {
@@ -113,6 +113,29 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
+  // Si API está habilitada, validar con API
+  if (apiClient && apiClient->isEnabled()) {
+    bool accessGranted = false;
+    String userName = "";
+    
+    if (apiClient->validateAccess(uid, accessGranted, userName)) {
+      if (accessGranted) {
+        Serial.println("[TurnstileMode] ✓ Access granted for: " + userName);
+        onAccessGranted(uid);
+      } else {
+        Serial.println("[TurnstileMode] ✗ Access denied");
+        onAccessDenied(uid);
+      }
+      return;
+    }
+    
+    // Si falla la API, denegar por seguridad
+    Serial.println("[TurnstileMode] ✗ API error - access denied for security");
+    onAccessDenied(uid);
+    return;
+  }
+  
+  // Modo local (fallback si API no disponible)
   if (isCardAuthorized(uid)) {
     onAccessGranted(uid);
   } else {

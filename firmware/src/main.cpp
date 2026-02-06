@@ -18,6 +18,8 @@
 #include <mode_manager.h>
 #include <i2c_comm.h>
 #include <turnstile_mode.h>
+#include <standalone_mode.h>
+#include <api_client.h>
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -27,8 +29,10 @@ ConfigManager configManager(CONFIG_FILE_PATH);
 RFIDManager rfidManager(SS_PIN, RST_PIN);
 WebServerManager webServer(WEB_SERVER_PORT);
 ModeManager modeManager;
-I2CComm i2cComm(0x08, 26, 25);  // Dirección 0x08, SDA=Pin25, SCL=Pin26
-TurnstileMode turnstileMode(&i2cComm);
+APIClient apiClient(RFID_SENSOR_ID, AUTH_SECRET);
+I2CComm i2cComm(0x08, 26, 25);  // Dirección 0x08, SDA=Pin26, SCL=Pin25
+TurnstileMode turnstileMode(&i2cComm, &apiClient);
+StandaloneMode standaloneMode(&apiClient);
 
 // ============================================================================
 // TASK MANAGEMENT (para evitar bloqueos del watchdog)
@@ -40,6 +44,7 @@ enum TaskType {
   TASK_RFID_CHECK_CARD,
   TASK_WEBSERVER_CLEANUP,
   TASK_TURNSTILE_PERIODIC,
+  TASK_API_HEARTBEAT,
   TASK_COUNT
 };
 
@@ -54,9 +59,10 @@ Task tasks[TASK_COUNT] = {
   {TASK_WIFI_PERIODIC,        0, 30000, true},  // Cada 30 segundos
   {TASK_WIFI_CHECK_CONNECTION, 0, 5000,  true},  // Cada 5 segundos
   {TASK_WIFI_CHECK_SCAN,       0, 100,   true},  // Cada 100ms
-  {TASK_RFID_CHECK_CARD,       0, 50,    true},  // Cada 2 segundos
-  {TASK_TURNSTILE_PERIODIC,    0, 100,   false},  // Cada 100ms (solo en modo torniquete)
-  {TASK_WEBSERVER_CLEANUP,     0, 2000,  true}   // Cada 2 segundos
+  {TASK_RFID_CHECK_CARD,       0, 50,    true},  // Cada 50ms
+  {TASK_TURNSTILE_PERIODIC,    0, 100,   false}, // Cada 100ms (solo en modo torniquete)
+  {TASK_WEBSERVER_CLEANUP,     0, 2000,  true},  // Cada 2 segundos
+  {TASK_API_HEARTBEAT,         0, 300000, false} // Cada 5 minutos (cuando API habilitada)
 };
 
 // ============================================================================
@@ -98,11 +104,22 @@ void handleRFIDCheckCard() {
   String uid;
   if (rfidManager.checkForCard(uid)) {
     Serial.println("Tarjeta detectada: " + uid);
+    Notificar al web server
+    webServer.notifyCardDetected(uid);
     
-    // Si estamos en modo torniquete, procesar la tarjeta
+    // Manejar según el modo activo
     if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
       turnstileMode.handleCardDetected(uid);
+    } else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
+      standaloneMode.handle
+      webServer.notifyCardDetected(uid);
     }
+  }
+}
+
+void handleAPIHeartbeat() {
+  if (apiClient.isEnabled() && wifiManager.isConnected()) {
+    apiClient.sendHeartbeat();
   }
 }
 
@@ -152,6 +169,9 @@ void runTasks() {
         case TASK_WEBSERVER_CLEANUP:
           handleWebServerCleanup();
           break;
+        case TASK_API_HEARTBEAT:
+          handleAPIHeartbeat();
+          break;
         default:
           break;
       }
@@ -184,7 +204,10 @@ void setup() {
     poweroff(2);
     for(;;);
   }
-  
+  case TASK_API_HEARTBEAT:
+          handleAPIHeartbeat();
+          break;
+        
   // Ahora inicializar ModeManager (requiere SPIFFS montado y ConfigManager)
   Serial.println("Inicializando Mode Manager");
   modeManager = ModeManager(&configManager);
@@ -211,15 +234,47 @@ void setup() {
   if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
     Serial.println("Modo torniquete activo - inicializando I2C");
     i2cComm.begin();
-    turnstileMode.begin();
-    turnstileMode.setAutoLockDelay(TURNSTILE_AUTO_LOCK_DELAY);
-    tasks[TASK_TURNSTILE_PERIODIC].enabled = true;
+    else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
+    standaloneMode.begin();
+  }
+  
+  // Configurar API Client
+  String apiBaseURL = configManager.getAPIBaseURL();
+  bool apiEnabled = configManager.getAPIEnabled();
+  unsigned long heartbeatInterval = configManager.getAPIHeartbeatInterval();
+  
+  if (!apiBaseURL.isEmpty()) {
+    apiClient.setBaseURL(apiBaseURL);
+    apiClient.setEnabled(apiEnabled);
+    tasks[TASK_API_HEARTBEAT].interval = heartbeatInterval;
+    
+    if (apiEnabled) {
+      Serial.println("===========================================");
+      Serial.println("API Client configurada");
+      Serial.println("URL: " + apiBaseURL);
+      Serial.println("Heartbeat: " + String(heartbeatInterval / 1000) + "s");
+      Serial.println("===========================================");
+      
+      tasks[TASK_API_HEARTBEAT].enabled = true;
+      
+      if (wifiManager.isConnected()) {
+        Serial.println("Probando conexión con API...");
+        if (apiClient.testConnection()) {
+          Serial.println("✓ API conectada correctamente");
+        } else {
+          Serial.println("✗ No se pudo conectar con la API");
+        }
+      }
+    }
   }
   
   Serial.println("===========================================");
   Serial.println("Sistema inicializado");
   Serial.println("Modo actual: " + modeManager.getCurrentModeString());
-  Serial.println("===========================================");
+  Serial.println("===========================================");;
+  Serial.println("Sistema inicializado");
+  Serial.println("Modo actual: " + modeManager.getCurrentModeString());
+  Serial.println("===========================================");;
   
   // Configurar referencias antes de inicializar web server
   webServer.setModeManager(&modeManager);

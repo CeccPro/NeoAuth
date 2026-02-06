@@ -12,6 +12,7 @@
 
 #include <Arduino.h>
 #include <i2c_comm.h>
+#include <api_client.h>
 #include <vector>
 #include <set>
 
@@ -29,18 +30,18 @@ namespace TurnstileCmd {
 
 class TurnstileMode {
 public:
-  TurnstileMode(I2CComm* i2cComm);
+  TurnstileMode(I2CComm* i2cComm, APIClient* apiClient);
   
   // Inicialización
   void begin();
   
-  // Verificar si una tarjeta está autorizada
+  // Verificar si una tarjeta está autorizada (modo local)
   bool isCardAuthorized(const String& uid);
   
   // Procesar tarjeta detectada
   void handleCardDetected(const String& uid);
   
-  // Gestión de tarjetas autorizadas (lista local temporal)
+  // Gestión de tarjetas autorizadas (lista local temporal, fallback)
   void addAuthorizedCard(const String& uid);
   void removeAuthorizedCard(const String& uid);
   void clearAuthorizedCards();
@@ -60,6 +61,7 @@ public:
 
 private:
   I2CComm* i2cComm;
+  APIClient* apiClient;
   std::set<String> authorizedCards;
   
   unsigned long autoLockDelay;  // Tiempo antes de auto-bloquear (ms)

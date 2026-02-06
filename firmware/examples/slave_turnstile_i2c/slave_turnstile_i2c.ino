@@ -11,6 +11,7 @@
  */
 
 #include <Wire.h>
+#include <Arduino.h>
 
 #define I2C_SLAVE_ADDRESS 0x08
 #define LED_PIN 2

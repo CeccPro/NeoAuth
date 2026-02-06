@@ -33,6 +33,12 @@ public:
   String getMode();
   bool setMode(const String& mode);
   
+  // Gestión de configuración de API
+  String getAPIBaseURL();
+  bool getAPIEnabled();
+  unsigned long getAPIHeartbeatInterval();
+  bool setAPIConfig(const String& baseURL, bool enabled, unsigned long heartbeatInterval);
+
 private:
   const char* configFilePath;
   bool createDefaultConfig();

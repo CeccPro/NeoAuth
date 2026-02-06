@@ -5,5 +5,10 @@
       "ssid": "Totalplay-2.4G-a638",
       "password": "EfX6FgYuJXSWaJf8"
     }
-  ]
+  ],
+  "api": {
+    "base_url": "https://api.ejemplo.com",
+    "enabled": false,
+    "heartbeat_interval": 300
+  }
 }
