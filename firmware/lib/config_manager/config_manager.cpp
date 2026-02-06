@@ -105,3 +105,62 @@ bool ConfigManager::createDefaultConfig() {
   std::vector<WiFiNetwork> emptyNetworks;
   return save(emptyNetworks);
 }
+
+String ConfigManager::getMode() {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json");
+    return "standalone"; // Default
+  }
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error) {
+    Serial.println("[ConfigManager] Error parsing config.json");
+    return "standalone"; // Default
+  }
+  
+  if (!doc.containsKey("mode")) {
+    return "standalone"; // Default
+  }
+  
+  return doc["mode"].as<String>();
+}
+
+bool ConfigManager::setMode(const String& mode) {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json");
+    return false;
+  }
+  
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, configFile);
+  configFile.close();
+  
+  if (error) {
+    Serial.println("[ConfigManager] Error parsing config.json");
+    return false;
+  }
+  
+  // Actualizar el modo
+  doc["mode"] = mode;
+  
+  // Guardar
+  configFile = SPIFFS.open(configFilePath, "w");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json for writing");
+    return false;
+  }
+  
+  if (serializeJson(doc, configFile) == 0) {
+    Serial.println("[ConfigManager] Error writing config.json");
+    configFile.close();
+    return false;
+  }
+  
+  configFile.close();
+  return true;
+}

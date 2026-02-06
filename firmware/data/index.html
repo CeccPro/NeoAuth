@@ -762,8 +762,28 @@
                             <span class="info-label"><i class="bi bi-broadcast"></i> IP del AP:</span>
                             <span class="info-value" id="apIP">-</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label"><i class="bi bi-sliders"></i> Modo Actual:</span>
+                            <span class="info-value" id="currentMode">
+                                <span class="status-badge" id="modeBadge">
+                                    <i class="bi bi-circle-fill"></i>
+                                    -
+                                </span>
+                            </span>
+                        </div>
                     </div>
                     <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Cambiar Modo de Operación</label>
+                            <select class="form-select" id="modeSelect">
+                                <option value="standalone">Standalone - Lector independiente</option>
+                                <option value="turnstile">Torniquete - Control de acceso</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success w-100 mb-2" onclick="changeMode()">
+                            <i class="bi bi-gear-fill"></i>
+                            Cambiar Modo
+                        </button>
                         <button class="btn btn-primary w-100" onclick="refreshConfig()">
                             <i class="bi bi-arrow-clockwise"></i>
                             Actualizar Información
@@ -805,7 +825,35 @@
             </div>
         </div>
 
-        <!-- Fila 2: Historial de Tarjetas -->
+        <!-- Fila 2: Control de Torniquete (solo visible en modo torniquete) -->
+        <div class="row mb-4 g-3 g-md-4" id="turnstileControlRow" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-door-closed-fill"></i>
+                        Control Manual del Torniquete
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            <strong>Nota:</strong> El torniquete se bloqueará automáticamente después de 5 segundos.
+                        </div>
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-success btn-lg" onclick="unlockTurnstile()">
+                                <i class="bi bi-unlock-fill"></i>
+                                Desbloquear Torniquete
+                            </button>
+                            <button class="btn btn-danger btn-lg" onclick="lockTurnstile()">
+                                <i class="bi bi-lock-fill"></i>
+                                Bloquear Torniquete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fila 3: Historial de Tarjetas -->
         <div class="row g-3 g-md-4">
             <div class="col-12">
                 <div class="card">
@@ -1008,7 +1056,18 @@
             }
             else if(data.type === 'success') {
                 console.log('Respuesta exitosa:', data.message);
+                showToast('Éxito', data.message, 'success');
+                
+                // Si es un cambio de modo con reinicio, avisar al usuario
+                if(data.reboot) {
+                    showToast('Reiniciando', 'El dispositivo se reiniciará en 3 segundos...', 'warning');
+                }
+                
                 refreshConfig();
+            }
+            else if(data.type === 'info') {
+                console.log('Info:', data.message);
+                showToast('Información', data.message, 'info');
             }
             else if(data.type === 'scan_started') {
                 console.log('Escaneo iniciado');
@@ -1046,6 +1105,39 @@
             document.getElementById('sensorId').textContent = data.sensor_id || '-';
             document.getElementById('firmware').textContent = data.firmware_version || '-';
             document.getElementById('apIP').textContent = data.ap_ip || '-';
+            
+            // Actualizar modo actual
+            if(data.current_mode) {
+                const modeBadge = document.getElementById('modeBadge');
+                const modeSelect = document.getElementById('modeSelect');
+                
+                // Guardar el modo actual globalmente para comparación
+                window.currentMode = data.current_mode;
+                
+                if(data.current_mode === 'standalone') {
+                    modeBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Standalone';
+                    modeBadge.className = 'status-badge connected';
+                    modeSelect.value = 'standalone';
+                } else if(data.current_mode === 'turnstile') {
+                    modeBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Torniquete';
+                    modeBadge.className = 'status-badge' ;
+                    modeBadge.style.backgroundColor = 'rgba(245, 158, 11, 0.2)';
+                    modeBadge.style.color = 'var(--warning)';
+                    modeBadge.style.borderColor = 'var(--warning)';
+                    modeSelect.value = 'turnstile';
+                }
+                
+                // Mostrar/ocultar panel de control de torniquete
+                const turnstileRow = document.getElementById('turnstileControlRow');
+                if(data.current_mode === 'turnstile') {
+                    turnstileRow.style.display = '';
+                } else {
+                    turnstileRow.style.display = 'none';
+                }
+                
+                // Actualizar estado del botón
+                updateChangeModeButton();
+            }
             
             const wifiStatus = document.getElementById('wifiStatus');
             if(data.wifi_connected) {
@@ -1305,6 +1397,74 @@
                 cards = [];
                 renderCards();
                 showToast('Historial', 'Historial limpiado correctamente', 'success');
+            }
+        }
+
+        function changeMode() {
+            const mode = document.getElementById('modeSelect').value;
+            
+            if(!mode) {
+                showToast('Validación', 'Selecciona un modo', 'warning');
+                return;
+            }
+            
+            // Verificar si es el mismo modo
+            if(window.currentMode && mode === window.currentMode) {
+                showToast('Información', 'Ya estás en modo ' + (mode === 'standalone' ? 'Standalone' : 'Torniquete'), 'info');
+                return;
+            }
+            
+            const modeNames = {
+                'standalone': 'Standalone',
+                'turnstile': 'Torniquete'
+            };
+            
+            if(confirm(`¿Cambiar al modo ${modeNames[mode]}?\n\nEl dispositivo se reiniciará para aplicar los cambios.`)) {
+                sendCommand('setMode', {mode: mode});
+                showToast('Modo de Operación', `Cambiando a modo ${modeNames[mode]}...`, 'info');
+                
+                // Mostrar mensaje de reinicio después de 2 segundos
+                setTimeout(() => {
+                    showToast('Reiniciando', 'El dispositivo se está reiniciando. Reconectando en 10 segundos...', 'warning');
+                }, 2000);
+            }
+        }
+        
+        function updateChangeModeButton() {
+            const modeSelect = document.getElementById('modeSelect');
+            const changeBtn = document.querySelector('button[onclick="changeMode()"]');
+            
+            if(!changeBtn || !modeSelect) return;
+            
+            // Añadir listener al select para actualizar el botón cuando cambia
+            modeSelect.addEventListener('change', function() {
+                if(window.currentMode && this.value === window.currentMode) {
+                    changeBtn.disabled = true;
+                    changeBtn.style.opacity = '0.5';
+                    changeBtn.innerHTML = '<i class="bi bi-check-circle"></i> Modo Actual';
+                } else {
+                    changeBtn.disabled = false;
+                    changeBtn.style.opacity = '1';
+                    changeBtn.innerHTML = '<i class="bi bi-gear-fill"></i> Cambiar Modo';
+                }
+            });
+            
+            // Disparar el evento change para inicializar el estado
+            modeSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Funciones de control del torniquete
+        function unlockTurnstile() {
+            if(confirm('¿Desbloquear el torniquete?\n\nSe bloqueará automáticamente después de 5 segundos.')) {
+                sendCommand('unlockTurnstile', {});
+                showToast('Torniquete', 'Desbloqueando...', 'info');
+            }
+        }
+
+        function lockTurnstile() {
+            if(confirm('¿Bloquear el torniquete manualmente?')) {
+                sendCommand('lockTurnstile', {});
+                showToast('Torniquete', 'Bloqueando...', 'info');
             }
         }
 

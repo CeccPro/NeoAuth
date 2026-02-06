@@ -15,6 +15,9 @@
 #include <config_manager.h>
 #include <rfid_manager.h>
 #include <web_server.h>
+#include <mode_manager.h>
+#include <i2c_comm.h>
+#include <turnstile_mode.h>
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -23,6 +26,9 @@ WiFiManager wifiManager(AP_SSID, AP_PASSWORD);
 ConfigManager configManager(CONFIG_FILE_PATH);
 RFIDManager rfidManager(SS_PIN, RST_PIN);
 WebServerManager webServer(WEB_SERVER_PORT);
+ModeManager modeManager;
+I2CComm i2cComm(0x08, 26, 25);  // Dirección 0x08, SDA=Pin25, SCL=Pin26
+TurnstileMode turnstileMode(&i2cComm);
 
 // ============================================================================
 // TASK MANAGEMENT (para evitar bloqueos del watchdog)
@@ -33,6 +39,7 @@ enum TaskType {
   TASK_WIFI_CHECK_SCAN,
   TASK_RFID_CHECK_CARD,
   TASK_WEBSERVER_CLEANUP,
+  TASK_TURNSTILE_PERIODIC,
   TASK_COUNT
 };
 
@@ -47,7 +54,8 @@ Task tasks[TASK_COUNT] = {
   {TASK_WIFI_PERIODIC,        0, 30000, true},  // Cada 30 segundos
   {TASK_WIFI_CHECK_CONNECTION, 0, 5000,  true},  // Cada 5 segundos
   {TASK_WIFI_CHECK_SCAN,       0, 100,   true},  // Cada 100ms
-  {TASK_RFID_CHECK_CARD,       0, 50,    true},  // Cada 50ms
+  {TASK_RFID_CHECK_CARD,       0, 50,    true},  // Cada 2 segundos
+  {TASK_TURNSTILE_PERIODIC,    0, 100,   false},  // Cada 100ms (solo en modo torniquete)
   {TASK_WEBSERVER_CLEANUP,     0, 2000,  true}   // Cada 2 segundos
 };
 
@@ -90,12 +98,20 @@ void handleRFIDCheckCard() {
   String uid;
   if (rfidManager.checkForCard(uid)) {
     Serial.println("Tarjeta detectada: " + uid);
-    webServer.notifyCardDetected(uid);
+    
+    // Si estamos en modo torniquete, procesar la tarjeta
+    if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
+      turnstileMode.handleCardDetected(uid);
+    }
   }
 }
 
 void handleWebServerCleanup() {
   webServer.periodicTask();
+}
+
+void handleTurnstilePeriodicTask() {
+  turnstileMode.periodicTask();
 }
 
 // ============================================================================
@@ -123,6 +139,9 @@ void runTasks() {
           break;
         case TASK_WIFI_CHECK_CONNECTION:
           handleWiFiCheckConnection();
+          break;
+        case TASK_TURNSTILE_PERIODIC:
+          handleTurnstilePeriodicTask();
           break;
         case TASK_WIFI_CHECK_SCAN:
           handleWiFiCheckScan();
@@ -159,12 +178,17 @@ void setup() {
   Serial.println("Firmware: " + String(FIRMWARE_VERSION));
   Serial.println("===========================================");
 
-  // Inicializar ConfigManager (SPIFFS)
+  // Inicializar ConfigManager (SPIFFS) - PRIMERO para montar el filesystem
   if (!configManager.begin()) {
     Serial.println("ERROR: Failed to initialize SPIFFS");
     poweroff(2);
     for(;;);
   }
+  
+  // Ahora inicializar ModeManager (requiere SPIFFS montado y ConfigManager)
+  Serial.println("Inicializando Mode Manager");
+  modeManager = ModeManager(&configManager);
+  modeManager.begin();
   
   // Cargar configuración
   std::vector<WiFiNetwork> networks;
@@ -176,13 +200,32 @@ void setup() {
   if (!rfidManager.begin()) {
     Serial.println("ERROR: RFID sensor initialization failed");
     poweroff(3);
-    for (;;);
+    for(;;);
   }
-
-  // Inicializar WiFi Manager
+  
+  // Inicializar WiFi ANTES del WebServer
+  Serial.println("Inicializando WiFi...");
   wifiManager.begin();
   
-  // Inicializar Web Server
+  // Si el modo es torniquete, inicializar I2C y Turnstile
+  if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
+    Serial.println("Modo torniquete activo - inicializando I2C");
+    i2cComm.begin();
+    turnstileMode.begin();
+    turnstileMode.setAutoLockDelay(TURNSTILE_AUTO_LOCK_DELAY);
+    tasks[TASK_TURNSTILE_PERIODIC].enabled = true;
+  }
+  
+  Serial.println("===========================================");
+  Serial.println("Sistema inicializado");
+  Serial.println("Modo actual: " + modeManager.getCurrentModeString());
+  Serial.println("===========================================");
+  
+  // Configurar referencias antes de inicializar web server
+  webServer.setModeManager(&modeManager);
+  webServer.setTurnstileMode(&turnstileMode);
+  
+  // Inicializar Web Server (esto inicializa WiFi internamente)
   webServer.begin(&wifiManager, &configManager, RFID_SENSOR_ID, FIRMWARE_VERSION);
   
   // Configurar callback para notificar conexiones WiFi exitosas
@@ -202,9 +245,9 @@ void setup() {
       );
     }
   }
+  
+  // Mostrar estado de WiFi
   Serial.println("AP SSID: " + String(AP_SSID));
-  // Inicializar Web Server
-  webServer.begin(&wifiManager, &configManager, RFID_SENSOR_ID, FIRMWARE_VERSION);
   if (wifiManager.isConnected()) {
     Serial.println("WiFi conectado a: " + wifiManager.getConnectedSSID());
     Serial.println("WiFi IP: " + wifiManager.getLocalIP().toString());

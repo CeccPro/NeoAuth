@@ -29,6 +29,10 @@ public:
   bool load(std::vector<WiFiNetwork>& networks);
   bool save(const std::vector<WiFiNetwork>& networks);
   
+  // Gestión del modo
+  String getMode();
+  bool setMode(const String& mode);
+  
 private:
   const char* configFilePath;
   bool createDefaultConfig();

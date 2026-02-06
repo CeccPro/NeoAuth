@@ -3,6 +3,7 @@
 # Variables
 PROJECT_DIR = $(shell pwd)
 BUILD_PIO = ~/.platformio/penv/bin/platformio
+DEVICE = /dev/ttyUSB0
 
 # Comandos principales
 all: build
@@ -26,15 +27,15 @@ build:
 
 upload:
 	@echo "Cargando firmware al ESP32..."
-	$(BUILD_PIO) run --target upload
+	$(BUILD_PIO) run --target upload --upload-port $(DEVICE)
 
 uploadfs:
 	@echo "Cargando sistema de archivos al ESP32..."
-	$(BUILD_PIO) run --target uploadfs
+	$(BUILD_PIO) run --target uploadfs --upload-port $(DEVICE)
 
 monitor:
 	@echo "Abriendo monitor serial..."
-	$(BUILD_PIO) device monitor
+	$(BUILD_PIO) device monitor --port $(DEVICE)
 
 run: upload monitor
 
@@ -58,7 +59,7 @@ cleanall:
 # Borrar la flash del ESP32
 erase:
 	@echo "Borrando flash del ESP32..."
-	$(BUILD_PIO) run --target erase
+	$(BUILD_PIO) run --target erase --upload-port $(DEVICE)
 
 # Ejecutar tests
 test:

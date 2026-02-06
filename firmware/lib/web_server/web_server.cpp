@@ -10,9 +10,12 @@
 #include "web_server.h"
 #include "../wifi_manager/wifi_manager.h"
 #include "../config_manager/config_manager.h"
+#include "../mode_manager/mode_manager.h"
+#include "../turnstile_mode/turnstile_mode.h"
 
 WebServerManager::WebServerManager(uint16_t port)
   : server(port), ws("/ws"), wifiManager(nullptr), configManager(nullptr),
+    modeManager(nullptr), turnstileMode(nullptr),
     sensorId(nullptr), firmwareVersion(nullptr) {
 }
 
@@ -42,6 +45,14 @@ void WebServerManager::begin(WiFiManager* wifiMgr, ConfigManager* configMgr,
   
   server.begin();
   Serial.println("Web server started");
+}
+
+void WebServerManager::setModeManager(ModeManager* modeMgr) {
+  this->modeManager = modeMgr;
+}
+
+void WebServerManager::setTurnstileMode(TurnstileMode* turnstileModePtr) {
+  this->turnstileMode = turnstileModePtr;
 }
 
 void WebServerManager::notifyClients(const String& message) {
@@ -176,6 +187,30 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
             String ssid = doc["ssid"].as<String>();
             handleDeleteWiFi(client, ssid);
           }
+          else if (command == "setMode") {
+            String mode = doc["mode"].as<String>();
+            handleSetMode(client, mode);
+          }
+          else if (command == "getMode") {
+            handleGetMode(client);
+          }
+          else if (command == "addAuthorizedCard") {
+            String uid = doc["uid"].as<String>();
+            handleAddAuthorizedCard(client, uid);
+          }
+          else if (command == "removeAuthorizedCard") {
+            String uid = doc["uid"].as<String>();
+            handleRemoveAuthorizedCard(client, uid);
+          }
+          else if (command == "getAuthorizedCards") {
+            handleGetAuthorizedCards(client);
+          }
+          else if (command == "unlockTurnstile") {
+            handleUnlockTurnstile(client);
+          }
+          else if (command == "lockTurnstile") {
+            handleLockTurnstile(client);
+          }
           else if (command == "scanNetworks") {
             handleScanNetworks(client);
           }
@@ -197,6 +232,12 @@ void WebServerManager::handleGetConfig(AsyncWebSocketClient* client) {
   response["wifi_ssid"] = wifiManager->getConnectedSSID();
   if (wifiManager->isConnected()) {
     response["wifi_ip"] = wifiManager->getLocalIP().toString();
+  }
+  response["ap_ip"] = wifiManager->getAPIP().toString();
+  
+  // Agregar modo actual
+  if (modeManager) {
+    response["current_mode"] = modeManager->getCurrentModeString();
   }
   
   JsonArray networks = response.createNestedArray("known_networks");
@@ -296,4 +337,203 @@ void WebServerManager::handleScanNetworks(AsyncWebSocketClient* client) {
 
 void WebServerManager::handleConnectWiFi(AsyncWebSocketClient* client) {
   wifiManager->tryConnectKnownNetworks();
+}
+
+// ============================================================================
+// MODO HANDLERS
+// ============================================================================
+void WebServerManager::handleSetMode(AsyncWebSocketClient* client, const String& mode) {
+  if (!modeManager) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Mode manager no inicializado";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  SensorMode newMode = stringToMode(mode);
+  
+  // Verificar si ya está en ese modo
+  if (modeManager->getCurrentMode() == newMode) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "info";
+    responseDoc["message"] = "Ya está en modo " + mode;
+    responseDoc["current_mode"] = mode;
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+    return;
+  }
+  
+  if (modeManager->setMode(newMode)) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Modo cambiado a: " + mode + ". Reiniciando...";
+    responseDoc["current_mode"] = modeToString(newMode);
+    responseDoc["reboot"] = true;
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+    
+    // Notificar a todos los clientes
+    notifyClients(response);
+    
+    // Reiniciar después de un delay
+    delay(1000);
+    ESP.restart();
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al guardar el modo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+  }
+}
+
+void WebServerManager::handleGetMode(AsyncWebSocketClient* client) {
+  if (!modeManager) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Mode manager no inicializado";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "mode_info";
+  responseDoc["current_mode"] = modeManager->getCurrentModeString();
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+}
+
+// ============================================================================
+// TORNIQUETE HANDLERS
+// ============================================================================
+void WebServerManager::handleAddAuthorizedCard(AsyncWebSocketClient* client, const String& uid) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  turnstileMode->addAuthorizedCard(uid);
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = "Tarjeta " + uid + " agregada";
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+}
+
+void WebServerManager::handleRemoveAuthorizedCard(AsyncWebSocketClient* client, const String& uid) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  turnstileMode->removeAuthorizedCard(uid);
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = "Tarjeta " + uid + " eliminada";
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+}
+
+void WebServerManager::handleGetAuthorizedCards(AsyncWebSocketClient* client) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  auto cards = turnstileMode->getAuthorizedCards();
+  
+  DynamicJsonDocument responseDoc(1024);
+  responseDoc["type"] = "authorized_cards";
+  JsonArray cardsArray = responseDoc.createNestedArray("cards");
+  for (const auto& uid : cards) {
+    cardsArray.add(uid);
+  }
+  
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+}
+
+void WebServerManager::handleUnlockTurnstile(AsyncWebSocketClient* client) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  if (turnstileMode->unlockTurnstile()) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Torniquete desbloqueado";
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al desbloquear torniquete";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+  }
+}
+
+void WebServerManager::handleLockTurnstile(AsyncWebSocketClient* client) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  if (turnstileMode->lockTurnstile()) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Torniquete bloqueado";
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al bloquear torniquete";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+  }
 }

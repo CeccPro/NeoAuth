@@ -19,6 +19,8 @@
 // Forward declarations
 class WiFiManager;
 class ConfigManager;
+class ModeManager;
+class TurnstileMode;
 
 // Callback types
 typedef std::function<void(const String& ssid, const String& password)> OnAddWiFiCallback;
@@ -33,6 +35,10 @@ public:
   // Inicialización
   void begin(WiFiManager* wifiMgr, ConfigManager* configMgr,
              const char* sensorId, const char* firmwareVersion);
+  
+  // Agregar referencias al modo manager y turnstile
+  void setModeManager(ModeManager* modeMgr);
+  void setTurnstileMode(TurnstileMode* turnstileModePtr);
   
   // Notificar a todos los clientes WebSocket
   void notifyClients(const String& message);
@@ -55,6 +61,8 @@ public:
 
 private:
   AsyncWebServer server;
+  ModeManager* modeManager;
+  TurnstileMode* turnstileMode;
   AsyncWebSocket ws;
   
   WiFiManager* wifiManager;
@@ -70,6 +78,17 @@ private:
   void handleGetConfig(AsyncWebSocketClient* client);
   void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password);
   void handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid);
+  
+  // Manejadores de modo
+  void handleSetMode(AsyncWebSocketClient* client, const String& mode);
+  void handleGetMode(AsyncWebSocketClient* client);
+  
+  // Manejadores de torniquete
+  void handleAddAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
+  void handleRemoveAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
+  void handleGetAuthorizedCards(AsyncWebSocketClient* client);
+  void handleUnlockTurnstile(AsyncWebSocketClient* client);
+  void handleLockTurnstile(AsyncWebSocketClient* client);
   void handleScanNetworks(AsyncWebSocketClient* client);
   void handleConnectWiFi(AsyncWebSocketClient* client);
 };
