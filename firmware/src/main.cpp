@@ -22,6 +22,7 @@
 #include <api_client.h>
 #include <time_manager.h>
 #include <report_manager.h>
+#include <sys/time.h>
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -123,7 +124,19 @@ void handleRFIDCheckCard() {
 
 void handleAPIHeartbeat() {
   if (apiClient.isEnabled() && wifiManager.isConnected()) {
-    apiClient.sendHeartbeat();
+    time_t unixTime;
+    if (apiClient.sendHeartbeat(unixTime) && unixTime > 0) {
+      // Sincronizar RTC con la hora recibida
+      struct timeval tv;
+      tv.tv_sec = unixTime;
+      tv.tv_usec = 0;
+      settimeofday(&tv, NULL);
+      
+      Serial.println("[Main] RTC synchronized with server time");
+      
+      // Notificar al web server que hay nueva hora
+      webServer.sendRTCTime();
+    }
   }
 }
 
@@ -268,10 +281,16 @@ void setup() {
         if (apiClient.testConnection()) {
           Serial.println("✓ API conectada correctamente");
           
-          // Sincronizar tiempo
+          // Sincronizar tiempo desde el inicio
           Serial.println("Sincronizando hora con el servidor...");
-          if (timeManager.syncTime()) {
+          time_t unixTime;
+          if (apiClient.sendHeartbeat(unixTime) && unixTime > 0) {
+            struct timeval tv;
+            tv.tv_sec = unixTime;
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
             Serial.println("✓ Hora sincronizada correctamente");
+            webServer.sendRTCTime();
           } else {
             Serial.println("✗ No se pudo sincronizar la hora");
           }

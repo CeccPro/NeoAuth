@@ -8,7 +8,7 @@
 
 TurnstileMode::TurnstileMode(I2CComm* i2cComm, APIClient* apiClient, TimeManager* timeManager, ReportManager* reportManager)
   : i2cComm(i2cComm), apiClient(apiClient), timeManager(timeManager), reportManager(reportManager), 
-    autoLockDelay(5000), unlockTime(0), isUnlocked(false) {
+    autoLockDelay(5000), unlockTime(0), isUnlocked(false), autoLockEnabled(true), blockModeEnabled(false) {
 }
 
 void TurnstileMode::begin() {
@@ -114,6 +114,13 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
+  // Si el modo de bloqueo está activo, denegar todo
+  if (blockModeEnabled) {
+    Serial.println("[TurnstileMode] ⛔ Block mode enabled - denying all access");
+    onAccessDenied(uid);
+    return;
+  }
+  
   // Si API está habilitada, validar con API
   if (apiClient && apiClient->isEnabled()) {
     bool accessGranted = false;
@@ -203,9 +210,32 @@ void TurnstileMode::onAccessDenied(const String& uid) {
 }
 
 void TurnstileMode::periodicTask() {
-  // Auto-bloquear el torniquete después del delay configurado
-  if (isUnlocked && (millis() - unlockTime >= autoLockDelay)) {
+  // Auto-bloquear el torniquete después del delay configurado (solo si está habilitado)
+  if (autoLockEnabled && isUnlocked && (millis() - unlockTime >= autoLockDelay)) {
     Serial.println("[TurnstileMode] Auto-lock timeout reached");
+    lockTurnstile();
+  }
+}
+
+bool TurnstileMode::unlockIndefinitely() {
+  Serial.println("[TurnstileMode] Unlocking indefinitely (auto-lock disabled)");
+  autoLockEnabled = false;
+  return unlockTurnstile();
+}
+
+bool TurnstileMode::unlockForDuration(unsigned long durationMs) {
+  Serial.println("[TurnstileMode] Unlocking for " + String(durationMs / 1000) + " seconds");
+  autoLockEnabled = true;
+  autoLockDelay = durationMs;
+  return unlockTurnstile();
+}
+
+void TurnstileMode::setBlockMode(bool enabled) {
+  blockModeEnabled = enabled;
+  Serial.println("[TurnstileMode] Block mode " + String(enabled ? "ENABLED" : "DISABLED"));
+  
+  // Si se activa el modo bloqueo, bloquear el torniquete
+  if (enabled) {
     lockTurnstile();
   }
 }

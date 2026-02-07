@@ -52,8 +52,14 @@ public:
   
   // Control manual del torniquete
   bool unlockTurnstile();
+  bool unlockIndefinitely();
+  bool unlockForDuration(unsigned long durationMs);
   bool lockTurnstile();
   bool pingSlave();
+  
+  // Modo de bloqueo (rechazar todas las tarjetas)
+  void setBlockMode(bool enabled);
+  bool isBlockModeEnabled() const { return blockModeEnabled; }
   
   // Configuración
   void setAutoLockDelay(unsigned long delayMs);
@@ -72,6 +78,8 @@ private:
   unsigned long autoLockDelay;  // Tiempo antes de auto-bloquear (ms)
   unsigned long unlockTime;     // Timestamp de último desbloqueo
   bool isUnlocked;
+  bool autoLockEnabled;         // Si el auto-lock está activo
+  bool blockModeEnabled;        // Modo de bloqueo total
   
   // Enviar comando al slave
   bool sendCommand(uint8_t cmd);

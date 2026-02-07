@@ -115,6 +115,11 @@ bool APIClient::makeRequest(const String& endpoint, const JsonDocument& payload,
 }
 
 bool APIClient::sendHeartbeat() {
+  time_t dummyTime;
+  return sendHeartbeat(dummyTime);
+}
+
+bool APIClient::sendHeartbeat(time_t& unixTime) {
   DynamicJsonDocument payload(256);
   payload["sensor_id"] = sensorId;
   payload["auth_token"] = authToken;
@@ -124,7 +129,9 @@ bool APIClient::sendHeartbeat() {
   if (makeRequest("/api/v1/heartbeat", payload, response)) {
     String status = response["status"] | "";
     if (status == "ok") {
-      Serial.println("[APIClient] Heartbeat OK");
+      // Extraer timestamp unix para sincronizar RTC
+      unixTime = response["unix"] | 0;
+      Serial.println("[APIClient] Heartbeat OK - Unix time: " + String(unixTime));
       return true;
     }
   }

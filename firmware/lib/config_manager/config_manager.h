@@ -38,10 +38,20 @@ public:
   bool getAPIEnabled();
   unsigned long getAPIHeartbeatInterval();
   bool setAPIConfig(const String& baseURL, bool enabled, unsigned long heartbeatInterval);
+  
+  // Actualización de configuraciones individuales
+  bool setHeartbeatInterval(unsigned long intervalMs);
+  bool setAutoLockDelay(unsigned long delayMs);
+  bool saveConfig(); // Guardar archivo config.json completo
+  bool resetToDefaults(); // Restablecer configuración de fábrica
 
 private:
   const char* configFilePath;
   bool createDefaultConfig();
+  
+  // Cache de configuración en memoria
+  DynamicJsonDocument* configCache;
+  bool loadConfigToCache();
 };
 
 #endif // CONFIG_MANAGER_H

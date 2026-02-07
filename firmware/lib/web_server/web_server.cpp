@@ -81,6 +81,64 @@ void WebServerManager::sendSystemInfo(AsyncWebSocketClient* client) {
   }
 }
 
+void WebServerManager::sendSystemMetrics(AsyncWebSocketClient* client) {
+  DynamicJsonDocument doc(1024);
+  doc["type"] = "system_metrics";
+  
+  // RAM
+  JsonObject ramObj = doc.createNestedObject("metrics");
+  JsonObject ram = ramObj.createNestedObject("ram");
+  ram["total"] = ESP.getHeapSize();
+  ram["used"] = ESP.getHeapSize() - ESP.getFreeHeap();
+  
+  // Storage (SPIFFS)
+  JsonObject storage = ramObj.createNestedObject("storage");
+  storage["total"] = SPIFFS.totalBytes();
+  storage["used"] = SPIFFS.usedBytes();
+  
+  // CPU (simulado - porcentaje basado en carga aproximada)
+  // En ESP32 no hay medición directa de CPU, se puede estimar
+  ramObj["cpu"] = random(10, 40); // Placeholder - ajustar con cálculo real
+  
+  String response;
+  serializeJson(doc, response);
+  
+  if (client) {
+    client->text(response);
+  } else {
+    notifyClients(response);
+  }
+}
+
+void WebServerManager::sendRTCTime(AsyncWebSocketClient* client) {
+  DynamicJsonDocument doc(512);
+  doc["type"] = "rtc_time";
+  
+  // Obtener tiempo actual
+  time_t now;
+  struct tm timeinfo;
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  
+  char timeStr[9];
+  char dateStr[11];
+  strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeinfo);
+  strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &timeinfo);
+  
+  doc["time"] = timeStr;
+  doc["date"] = dateStr;
+  doc["synced"] = (now > 1000000); // Considerar sincronizado si timestamp es razonable
+  
+  String response;
+  serializeJson(doc, response);
+  
+  if (client) {
+    client->text(response);
+  } else {
+    notifyClients(response);
+  }
+}
+
 void WebServerManager::sendScanResult(int networkCount) {
   if (networkCount < 0) {
     // Error en el escaneo
@@ -119,6 +177,39 @@ void WebServerManager::notifyCardDetected(const String& uid) {
   doc["type"] = "card";
   doc["uid"] = uid;
   doc["timestamp"] = millis();
+  String jsonMsg;
+  serializeJson(doc, jsonMsg);
+  notifyClients(jsonMsg);
+}
+
+void WebServerManager::notifyCardDetected(const String& uid, bool accessGranted, const String& userName, JsonObject userMetadata) {
+  DynamicJsonDocument doc(1024);
+  doc["type"] = "card";
+  doc["uid"] = uid;
+  doc["timestamp"] = millis();
+  doc["access_granted"] = accessGranted;
+  
+  if (userName.length() > 0) {
+    JsonObject user = doc.createNestedObject("user");
+    user["name"] = userName;
+    
+    if (!userMetadata.isNull()) {
+      // Copiar metadatos importantes
+      if (userMetadata.containsKey("id")) {
+        user["id"] = userMetadata["id"];
+      }
+      if (userMetadata.containsKey("grado")) {
+        user["metadata"]["grado"] = userMetadata["grado"];
+      }
+      if (userMetadata.containsKey("grupo")) {
+        user["metadata"]["grupo"] = userMetadata["grupo"];
+      }
+      if (userMetadata.containsKey("is_admin")) {
+        user["metadata"]["is_admin"] = userMetadata["is_admin"];
+      }
+    }
+  }
+  
   String jsonMsg;
   serializeJson(doc, jsonMsg);
   notifyClients(jsonMsg);
@@ -178,6 +269,9 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           if (command == "getConfig") {
             handleGetConfig(client);
           }
+          else if (command == "getSystemMetrics") {
+            handleGetSystemMetrics(client);
+          }
           else if (command == "addWiFi") {
             String ssid = doc["ssid"].as<String>();
             String password = doc["password"].as<String>();
@@ -194,6 +288,15 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           else if (command == "getMode") {
             handleGetMode(client);
           }
+          else if (command == "updateConfig") {
+            handleUpdateConfig(client, doc.as<JsonVariant>());
+          }
+          else if (command == "resetConfig") {
+            handleResetConfig(client);
+          }
+          else if (command == "reboot") {
+            handleReboot(client);
+          }
           else if (command == "addAuthorizedCard") {
             String uid = doc["uid"].as<String>();
             handleAddAuthorizedCard(client, uid);
@@ -206,10 +309,14 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
             handleGetAuthorizedCards(client);
           }
           else if (command == "unlockTurnstile") {
-            handleUnlockTurnstile(client);
+            handleUnlockTurnstile(client, doc.as<JsonVariant>());
           }
           else if (command == "lockTurnstile") {
             handleLockTurnstile(client);
+          }
+          else if (command == "setBlockMode") {
+            bool enabled = doc["enabled"].as<bool>();
+            handleSetBlockMode(client, enabled);
           }
           else if (command == "scanNetworks") {
             handleScanNetworks(client);
@@ -238,6 +345,18 @@ void WebServerManager::handleGetConfig(AsyncWebSocketClient* client) {
   // Agregar modo actual
   if (modeManager) {
     response["current_mode"] = modeManager->getCurrentModeString();
+  }
+  
+  // Agregar configuración API
+  JsonObject api = response.createNestedObject("api");
+  api["base_url"] = configManager->getAPIBaseURL();
+  api["enabled"] = configManager->getAPIEnabled();
+  api["heartbeat_interval"] = configManager->getAPIHeartbeatInterval();
+  
+  // Agregar configuración de torniquete (si está en ese modo)
+  if (modeManager && modeManager->getCurrentMode() == MODE_TURNSTILE && turnstileMode) {
+    JsonObject turnstile = response.createNestedObject("turnstile");
+    turnstile["auto_lock_delay"] = turnstileMode->getAutoLockDelay();
   }
   
   JsonArray networks = response.createNestedArray("known_networks");
@@ -482,7 +601,7 @@ void WebServerManager::handleGetAuthorizedCards(AsyncWebSocketClient* client) {
   client->text(response);
 }
 
-void WebServerManager::handleUnlockTurnstile(AsyncWebSocketClient* client) {
+void WebServerManager::handleUnlockTurnstile(AsyncWebSocketClient* client, JsonVariant params) {
   if (!turnstileMode) {
     DynamicJsonDocument errorDoc(256);
     errorDoc["type"] = "error";
@@ -493,10 +612,28 @@ void WebServerManager::handleUnlockTurnstile(AsyncWebSocketClient* client) {
     return;
   }
   
-  if (turnstileMode->unlockTurnstile()) {
+  // Verificar si se especificó duración o indefinido
+  bool indefinite = params["indefinite"].as<bool>();
+  unsigned long duration = params["duration"].as<unsigned long>();
+  
+  bool success = false;
+  String message = "";
+  
+  if (indefinite) {
+    success = turnstileMode->unlockIndefinitely();
+    message = "Torniquete desbloqueado indefinidamente (auto-lock desactivado)";
+  } else if (duration > 0) {
+    success = turnstileMode->unlockForDuration(duration);
+    message = "Torniquete desbloqueado por " + String(duration / 1000) + " segundos";
+  } else {
+    success = turnstileMode->unlockTurnstile();
+    message = "Torniquete desbloqueado";
+  }
+  
+  if (success) {
     DynamicJsonDocument responseDoc(256);
     responseDoc["type"] = "success";
-    responseDoc["message"] = "Torniquete desbloqueado";
+    responseDoc["message"] = message;
     String response;
     serializeJson(responseDoc, response);
     client->text(response);
@@ -536,4 +673,104 @@ void WebServerManager::handleLockTurnstile(AsyncWebSocketClient* client) {
     serializeJson(errorDoc, error);
     client->text(error);
   }
+}
+
+void WebServerManager::handleSetBlockMode(AsyncWebSocketClient* client, bool enabled) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  turnstileMode->setBlockMode(enabled);
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = enabled ? "Modo de bloqueo ACTIVADO" : "Modo de bloqueo DESACTIVADO";
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+}
+
+void WebServerManager::handleUpdateConfig(AsyncWebSocketClient* client, JsonVariant config) {
+  // Extraer configuraciones del JSON
+  if (config["api"].is<JsonObject>()) {
+    JsonObject apiConfig = config["api"];
+    if (apiConfig.containsKey("heartbeat_interval")) {
+      unsigned long interval = apiConfig["heartbeat_interval"];
+      // Actualizar en config.json
+      configManager->setHeartbeatInterval(interval);
+    }
+  }
+  
+  if (config["turnstile"].is<JsonObject>()) {
+    JsonObject turnstileConfig = config["turnstile"];
+    if (turnstileConfig.containsKey("auto_lock_delay")) {
+      unsigned long delay = turnstileConfig["auto_lock_delay"];
+      // Actualizar en config.json
+      configManager->setAutoLockDelay(delay);
+    }
+  }
+  
+  // Guardar cambios
+  if (configManager->saveConfig()) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Configuración actualizada correctamente";
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al guardar configuración";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+  }
+}
+
+void WebServerManager::handleResetConfig(AsyncWebSocketClient* client) {
+  if (configManager->resetToDefaults()) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Configuración restablecida. Reiniciando...";
+    responseDoc["reboot"] = true;
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+    
+    delay(1000);
+    ESP.restart();
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al restablecer configuración";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+  }
+}
+
+void WebServerManager::handleReboot(AsyncWebSocketClient* client) {
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = "Reiniciando dispositivo...";
+  responseDoc["reboot"] = true;
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+  
+  notifyClients(response);
+  
+  delay(1000);
+  ESP.restart();
+}
+
+void WebServerManager::handleGetSystemMetrics(AsyncWebSocketClient* client) {
+  sendSystemMetrics(client);
 }

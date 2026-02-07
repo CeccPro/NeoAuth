@@ -143,7 +143,7 @@ app.get('/api/v1/time', (req, res) => {
 
 /**
  * POST /api/v1/heartbeat
- * Recibe heartbeat de sensores
+ * Recibe heartbeat de sensores y devuelve hora actual
  */
 app.post('/api/v1/heartbeat', authenticateSensor, async (req, res) => {
   const { sensor_id } = req.body;
@@ -162,10 +162,19 @@ app.post('/api/v1/heartbeat', authenticateSensor, async (req, res) => {
     });
   }
 
+  // Enviar hora actual en respuesta
+  const now = new Date();
+  const mexicoTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  
   res.json({
     status: 'ok',
     message: 'Heartbeat received',
-    timestamp: new Date().toISOString()
+    timestamp: now.toISOString(),
+    time: mexicoTime.toTimeString().split(' ')[0], // "HH:MM:SS"
+    date: mexicoTime.toISOString().split('T')[0],   // "YYYY-MM-DD"
+    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'lowercase' }), // "monday"
+    timezone: 'America/Mexico_City',
+    unix: Math.floor(now.getTime() / 1000)
   });
 });
 

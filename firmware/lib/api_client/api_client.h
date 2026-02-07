@@ -30,6 +30,7 @@ public:
   
   // Endpoints
   bool sendHeartbeat();
+  bool sendHeartbeat(time_t& unixTime); // Versión que retorna el timestamp
   bool validateAccess(const String& uid, bool& accessGranted, String& userName, JsonObject& userMetadata);
   bool whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata);
   

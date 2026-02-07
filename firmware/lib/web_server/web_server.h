@@ -46,11 +46,18 @@ public:
   // Enviar información del sistema
   void sendSystemInfo(AsyncWebSocketClient* client = nullptr);
   
+  // Enviar métricas del sistema (RAM, CPU, almacenamiento)
+  void sendSystemMetrics(AsyncWebSocketClient* client = nullptr);
+  
+  // Enviar hora del RTC
+  void sendRTCTime(AsyncWebSocketClient* client = nullptr);
+  
   // Enviar resultado del escaneo WiFi
   void sendScanResult(int networkCount);
   
   // Enviar notificación de tarjeta RFID
   void notifyCardDetected(const String& uid);
+  void notifyCardDetected(const String& uid, bool accessGranted, const String& userName, JsonObject userMetadata);
   
   // Enviar notificación de conexión WiFi
   void notifyWiFiConnected(const String& ssid, const String& ip);
@@ -87,10 +94,19 @@ private:
   void handleAddAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
   void handleRemoveAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
   void handleGetAuthorizedCards(AsyncWebSocketClient* client);
-  void handleUnlockTurnstile(AsyncWebSocketClient* client);
+  void handleUnlockTurnstile(AsyncWebSocketClient* client, JsonVariant params);
   void handleLockTurnstile(AsyncWebSocketClient* client);
+  void handleSetBlockMode(AsyncWebSocketClient* client, bool enabled);
   void handleScanNetworks(AsyncWebSocketClient* client);
   void handleConnectWiFi(AsyncWebSocketClient* client);
+  
+  // Manejadores de configuración
+  void handleUpdateConfig(AsyncWebSocketClient* client, JsonVariant config);
+  void handleResetConfig(AsyncWebSocketClient* client);
+  void handleReboot(AsyncWebSocketClient* client);
+  
+  // Manejadores de métricas
+  void handleGetSystemMetrics(AsyncWebSocketClient* client);
 };
 
 #endif // WEB_SERVER_H

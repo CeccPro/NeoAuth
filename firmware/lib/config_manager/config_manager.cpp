@@ -11,7 +11,7 @@
 #include "../wifi_manager/wifi_manager.h"
 
 ConfigManager::ConfigManager(const char* configFilePath)
-  : configFilePath(configFilePath) {
+  : configFilePath(configFilePath), configCache(nullptr) {
 }
 
 bool ConfigManager::begin() {
@@ -20,6 +20,10 @@ bool ConfigManager::begin() {
     Serial.println("Failed to mount SPIFFS");
     return false;
   }
+  
+  // Inicializar cache
+  configCache = new DynamicJsonDocument(2048);
+  
   return true;
 }
 
@@ -241,4 +245,84 @@ bool ConfigManager::setAPIConfig(const String& baseURL, bool enabled, unsigned l
   
   configFile.close();
   return true;
+}
+
+bool ConfigManager::loadConfigToCache() {
+  File configFile = SPIFFS.open(configFilePath, "r");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json");
+    return false;
+  }
+  
+  DeserializationError error = deserializeJson(*configCache, configFile);
+  configFile.close();
+  
+  if (error) {
+    Serial.println("[ConfigManager] Error parsing config.json");
+    return false;
+  }
+  
+  return true;
+}
+
+bool ConfigManager::saveConfig() {
+  File configFile = SPIFFS.open(configFilePath, "w");
+  if (!configFile) {
+    Serial.println("[ConfigManager] Error opening config.json for writing");
+    return false;
+  }
+  
+  if (serializeJson(*configCache, configFile) == 0) {
+    Serial.println("[ConfigManager] Error writing config.json");
+    configFile.close();
+    return false;
+  }
+  
+  configFile.close();
+  Serial.println("[ConfigManager] Configuration saved");
+  return true;
+}
+
+bool ConfigManager::setHeartbeatInterval(unsigned long intervalMs) {
+  if (!loadConfigToCache()) return false;
+  
+  // Actualizar en cache
+  if (!(*configCache)["api"].is<JsonObject>()) {
+    (*configCache).createNestedObject("api");
+  }
+  
+  (*configCache)["api"]["heartbeat_interval"] = intervalMs / 1000; // Guardar en segundos
+  
+  return true; // No guardar todavía, se guardará con saveConfig()
+}
+
+bool ConfigManager::setAutoLockDelay(unsigned long delayMs) {
+  if (!loadConfigToCache()) return false;
+  
+  // Actualizar en cache
+  if (!(*configCache)["turnstile"].is<JsonObject>()) {
+    (*configCache).createNestedObject("turnstile");
+  }
+  
+  (*configCache)["turnstile"]["auto_lock_delay"] = delayMs;
+  
+  return true; // No guardar todavía, se guardará con saveConfig()
+}
+
+bool ConfigManager::resetToDefaults() {
+  // Crear configuración vacía por defecto
+  configCache->clear();
+  (*configCache)["mode"] = "standalone";
+  
+  JsonArray networks = configCache->createNestedArray("wifi_networks");
+  
+  JsonObject api = configCache->createNestedObject("api");
+  api["base_url"] = "";
+  api["enabled"] = false;
+  api["heartbeat_interval"] = 300;
+  
+  JsonObject turnstile = configCache->createNestedObject("turnstile");
+  turnstile["auto_lock_delay"] = 5000;
+  
+  return saveConfig();
 }
