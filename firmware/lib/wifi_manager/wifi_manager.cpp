@@ -30,11 +30,18 @@ void WiFiManager::begin() {
   }
 }
 
-void WiFiManager::addNetwork(const String& ssid, const String& password) {
+void WiFiManager::addNetwork(const String& ssid, const String& password, bool preferred) {
   // Verificar si ya existe y actualizar
   for (auto& wn : knownNetworks) {
     if (wn.ssid == ssid) {
       wn.password = password;
+      if (preferred) {
+        wn.preferred = true;
+        // Quitar preferred de otras redes
+        for (auto& other : knownNetworks) {
+          if (other.ssid != ssid) other.preferred = false;
+        }
+      }
       return;
     }
   }
@@ -43,7 +50,22 @@ void WiFiManager::addNetwork(const String& ssid, const String& password) {
   WiFiNetwork wn;
   wn.ssid = ssid;
   wn.password = password;
+  wn.preferred = preferred;
+  
+  // Si es preferida, quitar preferred de otras redes
+  if (preferred) {
+    for (auto& other : knownNetworks) {
+      other.preferred = false;
+    }
+  }
+  
   knownNetworks.push_back(wn);
+}
+
+void WiFiManager::setPreferredNetwork(const String& ssid) {
+  for (auto& wn : knownNetworks) {
+    wn.preferred = (wn.ssid == ssid);
+  }
 }
 
 bool WiFiManager::removeNetwork(const String& ssid) {

@@ -70,8 +70,9 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks) {
     WiFiNetwork wn;
     wn.ssid = network["ssid"].as<String>();
     wn.password = network["password"].as<String>();
+    wn.preferred = network["preferred"] | false;
     networks.push_back(wn);
-    Serial.println("Red WiFi cargada: " + wn.ssid);
+    Serial.println("Red WiFi cargada: " + wn.ssid + (wn.preferred ? " (preferida)" : ""));
   }
 
   Serial.println("Configuración cargada correctamente");
@@ -86,6 +87,7 @@ bool ConfigManager::save(const std::vector<WiFiNetwork>& networks) {
     JsonObject network = networksArray.createNestedObject();
     network["ssid"] = wn.ssid;
     network["password"] = wn.password;
+    network["preferred"] = wn.preferred;
   }
 
   File configFile = SPIFFS.open(configFilePath, "w");

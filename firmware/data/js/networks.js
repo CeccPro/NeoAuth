@@ -23,26 +23,37 @@ window.loadNetworks = function() {
     }
     
     networksList.innerHTML = '';
-    networks.forEach(net => {
+    networks.forEach((net, index) => {
         const item = document.createElement('div');
-        item.className = 'network-item';
-        
         const isConnected = AppState.config.wifi_connected && AppState.config.wifi_ssid === net.ssid;
+        const isPreferred = net.preferred || networks.length === 1;
+        
+        item.className = 'network-item';
+        if (isConnected) item.classList.add('connected');
+        if (isPreferred) item.classList.add('preferred');
         
         item.innerHTML = `
             <div class="network-info">
                 <div class="network-ssid">
                     <i class="bi bi-wifi"></i>
                     ${net.ssid}
-                    ${isConnected ? '<span class="badge bg-success ms-2">Conectada</span>' : ''}
                 </div>
                 <div class="network-meta">
-                    ${net.has_password ? '<i class="bi bi-lock-fill"></i> Protegida' : '<i class="bi bi-unlock-fill"></i> Abierta'}
+                    <span class="network-badge ${net.has_password ? 'secured' : 'open'}">
+                        <i class="bi bi-${net.has_password ? 'lock-fill' : 'unlock-fill'}"></i>
+                        ${net.has_password ? 'Protegida' : 'Abierta'}
+                    </span>
+                    ${isConnected ? '<span class="badge bg-success">Conectada</span>' : ''}
+                    ${isPreferred ? '<span class="network-badge preferred"><i class="bi bi-star-fill"></i> Preferida</span>' : ''}
                 </div>
             </div>
-            <button class="btn btn-sm btn-danger" onclick="deleteNetwork('${net.ssid}')">
-                <i class="bi bi-trash"></i>
-            </button>
+            <div class="network-actions">
+                ${!isPreferred ? `<button class="btn btn-sm btn-primary" onclick="setPreferredNetwork('${net.ssid}')"><i class="bi bi-star"></i></button>` : ''}
+                ${!isConnected ? `<button class="btn btn-sm btn-success" onclick="connectToNetwork('${net.ssid}')"><i class="bi bi-plug"></i></button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteNetwork('${net.ssid}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         `;
         
         networksList.appendChild(item);
@@ -77,8 +88,23 @@ function updateWiFiStatus() {
 }
 
 function showAddNetworkModal() {
-    const modal = new bootstrap.Modal(document.getElementById('addNetworkModal'));
-    modal.show();
+    const overlay = document.getElementById('addNetworkOverlay');
+    const panel = document.getElementById('addNetworkPanel');
+    
+    overlay.classList.add('active');
+    panel.classList.add('active');
+}
+
+function closeAddNetworkPanel() {
+    const overlay = document.getElementById('addNetworkOverlay');
+    const panel = document.getElementById('addNetworkPanel');
+    
+    overlay.classList.remove('active');
+    panel.classList.remove('active');
+    
+    // Limpiar campos
+    document.getElementById('newSSIDSlide').value = '';
+    document.getElementById('newPasswordSlide').value = '';
 }
 
 function addNetwork() {
@@ -105,6 +131,30 @@ function addNetwork() {
     document.getElementById('newSSID').value = '';
     document.getElementById('newPassword').value = '';
     bootstrap.Modal.getInstance(document.getElementById('addNetworkModal')).hide();
+}
+
+function addNetworkFromSlide() {
+    const ssid = document.getElementById('newSSIDSlide').value.trim();
+    const password = document.getElementById('newPasswordSlide').value;
+    
+    if (!ssid) {
+        showToast('Validación', 'Debes ingresar un SSID', 'warning');
+        return;
+    }
+    
+    if (ssid.length > 32) {
+        showToast('Validación', 'El SSID no puede exceder 32 caracteres', 'warning');
+        return;
+    }
+    
+    if (password.length > 63) {
+        showToast('Validación', 'La contraseña no puede exceder 63 caracteres', 'warning');
+        return;
+    }
+    
+    sendCommand('addWiFi', { ssid: ssid, password: password, preferred: true });
+    
+    closeAddNetworkPanel();
 }
 
 function deleteNetwork(ssid) {
@@ -190,4 +240,14 @@ function quickAddNetwork(ssid) {
 function connectToKnownNetwork() {
     sendCommand('connectWiFi');
     showToast('WiFi', 'Intentando conectar a red conocida...', 'info');
+}
+
+function setPreferredNetwork(ssid) {
+    sendCommand('setPreferredWiFi', { ssid: ssid });
+    showToast('WiFi', `"${ssid}" establecida como red preferida`, 'success');
+}
+
+function connectToNetwork(ssid) {
+    sendCommand('connectToWiFi', { ssid: ssid });
+    showToast('WiFi', `Intentando conectar a "${ssid}"...`, 'info');
 }

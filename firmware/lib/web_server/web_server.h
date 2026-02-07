@@ -83,7 +83,9 @@ private:
   
   // Manejadores de comandos
   void handleGetConfig(AsyncWebSocketClient* client);
-  void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password);
+  void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password, bool preferred = false);
+  void handleSetPreferredWiFi(AsyncWebSocketClient* client, const String& ssid);
+  void handleConnectToWiFi(AsyncWebSocketClient* client, const String& ssid);
   void handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid);
   
   // Manejadores de modo

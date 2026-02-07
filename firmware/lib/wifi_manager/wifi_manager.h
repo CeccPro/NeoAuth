@@ -21,6 +21,7 @@ typedef std::function<void(const String& ssid, const String& ip)> OnWiFiConnecte
 struct WiFiNetwork {
   String ssid;
   String password;
+  bool preferred = false; // Red preferida para auto-conexión
 };
 
 class WiFiManager {
@@ -31,10 +32,11 @@ public:
   void begin();
   
   // Gestión de redes conocidas
-  void addNetwork(const String& ssid, const String& password);
+  void addNetwork(const String& ssid, const String& password, bool preferred = false);
   bool removeNetwork(const String& ssid);
   bool networkExists(const String& ssid);
   void updateNetworkPassword(const String& ssid, const String& password);
+  void setPreferredNetwork(const String& ssid);
   const std::vector<WiFiNetwork>& getKnownNetworks() const;
   void setKnownNetworks(const std::vector<WiFiNetwork>& networks);
   

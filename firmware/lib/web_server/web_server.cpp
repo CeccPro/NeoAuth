@@ -275,7 +275,16 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           else if (command == "addWiFi") {
             String ssid = doc["ssid"].as<String>();
             String password = doc["password"].as<String>();
-            handleAddWiFi(client, ssid, password);
+            bool preferred = doc["preferred"] | false;
+            handleAddWiFi(client, ssid, password, preferred);
+          }
+          else if (command == "setPreferredWiFi") {
+            String ssid = doc["ssid"].as<String>();
+            handleSetPreferredWiFi(client, ssid);
+          }
+          else if (command == "connectToWiFi") {
+            String ssid = doc["ssid"].as<String>();
+            handleConnectToWiFi(client, ssid);
           }
           else if (command == "deleteWiFi") {
             String ssid = doc["ssid"].as<String>();
@@ -364,6 +373,7 @@ void WebServerManager::handleGetConfig(AsyncWebSocketClient* client) {
     JsonObject net = networks.createNestedObject();
     net["ssid"] = wn.ssid;
     net["has_password"] = (wn.password.length() > 0);
+    net["preferred"] = wn.preferred;
   }
   
   String json;
@@ -372,7 +382,7 @@ void WebServerManager::handleGetConfig(AsyncWebSocketClient* client) {
 }
 
 void WebServerManager::handleAddWiFi(AsyncWebSocketClient* client, 
-                                     const String& ssid, const String& password) {
+                                     const String& ssid, const String& password, bool preferred) {
   // Validar longitud de SSID
   if (ssid.length() == 0 || ssid.length() > 32) {
     DynamicJsonDocument errorDoc(256);
@@ -396,18 +406,65 @@ void WebServerManager::handleAddWiFi(AsyncWebSocketClient* client,
   }
   
   // Agregar o actualizar red
-  wifiManager->addNetwork(ssid, password);
+  wifiManager->addNetwork(ssid, password, preferred);
   configManager->save(wifiManager->getKnownNetworks());
   
   DynamicJsonDocument responseDoc(256);
   responseDoc["type"] = "success";
-  responseDoc["message"] = "Red WiFi agregada. Use el botón 'Conectar' para intentar la conexión";
+  responseDoc["message"] = preferred ? 
+    "Red WiFi agregada como preferida" : 
+    "Red WiFi agregada. Use el botón 'Conectar' para intentar la conexión";
   String response;
   serializeJson(responseDoc, response);
   client->text(response);
   
-  // No intentar conectar inmediatamente para evitar bloqueos
-  // El usuario debe usar el botón "Conectar a Red Conocida"
+  // Notificar cambios a todos los clientes
+  sendSystemInfo();
+}
+
+void WebServerManager::handleSetPreferredWiFi(AsyncWebSocketClient* client, const String& ssid) {
+  wifiManager->setPreferredNetwork(ssid);
+  configManager->save(wifiManager->getKnownNetworks());
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = "Red establecida como preferida";
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+  
+  sendSystemInfo();
+}
+
+void WebServerManager::handleConnectToWiFi(AsyncWebSocketClient* client, const String& ssid) {
+  // Intentar conectar a una red específica
+  for (const auto& wn : wifiManager->getKnownNetworks()) {
+    if (wn.ssid == ssid) {
+      WiFi.disconnect();
+      delay(100);
+      
+      if (wn.password.length() > 0) {
+        WiFi.begin(wn.ssid.c_str(), wn.password.c_str());
+      } else {
+        WiFi.begin(wn.ssid.c_str());
+      }
+      
+      DynamicJsonDocument responseDoc(256);
+      responseDoc["type"] = "info";
+      responseDoc["message"] = "Intentando conectar a " + ssid;
+      String response;
+      serializeJson(responseDoc, response);
+      client->text(response);
+      return;
+    }
+  }
+  
+  DynamicJsonDocument errorDoc(256);
+  errorDoc["type"] = "error";
+  errorDoc["message"] = "Red no encontrada";
+  String error;
+  serializeJson(errorDoc, error);
+  client->text(error);
 }
 
 void WebServerManager::handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid) {

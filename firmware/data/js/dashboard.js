@@ -55,18 +55,25 @@ function updateCharts() {
     
     // Actualizar RAM Chart
     if (ramChart) {
-        const ramUsed = metrics.ram.used;
-        const ramFree = metrics.ram.total - metrics.ram.used;
+        const ramUsed = metrics.ram.used || 0;
+        const ramFree = (metrics.ram.total || 0) - ramUsed;
         ramChart.data.datasets[0].data = [ramUsed, ramFree];
-        ramChart.update();
+        ramChart.update('none'); // 'none' para no animar
     }
     
     // Actualizar Storage Chart
     if (storageChart) {
-        const storageUsed = metrics.storage.used;
-        const storageFree = metrics.storage.total - metrics.storage.used;
+        const storageUsed = metrics.storage.used || 0;
+        const storageFree = (metrics.storage.total || 0) - storageUsed;
         storageChart.data.datasets[0].data = [storageUsed, storageFree];
-        storageChart.update();
+        storageChart.update('none');
+    }
+    
+    // Actualizar CPU Chart
+    const cpuCtx = document.getElementById('cpuChart');
+    if (cpuCtx && cpuCtx.chart) {
+        cpuCtx.chart.data.datasets[0].data = [metrics.cpu || 0];
+        cpuCtx.chart.update('none');
     }
 }
 
@@ -165,7 +172,7 @@ function initCharts() {
     // CPU Gauge (usando bar chart horizontal)
     const cpuCtx = document.getElementById('cpuChart');
     if (cpuCtx) {
-        new Chart(cpuCtx, {
+        cpuCtx.chart = new Chart(cpuCtx, {
             type: 'bar',
             data: {
                 labels: ['CPU'],

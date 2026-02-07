@@ -109,21 +109,29 @@ function updateStandaloneDisplay(user) {
     
     if (!userDisplay) return;
     
+    // Crear imagen/avatar placeholder
+    const avatarPlaceholder = user.metadata && user.metadata.avatar_url 
+        ? `<img src="${user.metadata.avatar_url}" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--accent);">`
+        : `<div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-dark), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 3rem; color: var(--primary); font-weight: bold; border: 4px solid var(--accent); box-shadow: 0 8px 24px var(--glow);">${(user.name || 'U').charAt(0).toUpperCase()}</div>`;
+    
     userDisplay.innerHTML = `
-        <div class="card">
-            <div class="card-body text-center">
-                <div class="mb-3">
-                    <i class="bi bi-person-circle" style="font-size: 5rem; color: var(--accent);"></i>
+        <div style="text-align: center; padding: 2rem;">
+            <div style="margin-bottom: 1.5rem; display: flex; justify-content: center;">
+                ${avatarPlaceholder}
+            </div>
+            <h2 style="color: var(--accent); margin-bottom: 0.5rem; font-size: 2rem;">${user.name || 'Usuario Desconocido'}</h2>
+            <p style="color: var(--text-secondary); font-family: monospace; margin-bottom: 1.5rem;">UUID: ${user.id || '-'}</p>
+            ${user.email ? `<p style="color: var(--text-secondary); margin-bottom: 1rem;"><i class="bi bi-envelope"></i> ${user.email}</p>` : ''}
+            ${user.metadata ? `
+                <div style="display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;">
+                    ${user.metadata.grado ? `<span class="badge bg-info" style="font-size: 0.9rem; padding: 0.5rem 1rem;">Grado: ${user.metadata.grado}</span>` : ''}
+                    ${user.metadata.grupo ? `<span class="badge bg-info" style="font-size: 0.9rem; padding: 0.5rem 1rem;">Grupo: ${user.metadata.grupo}</span>` : ''}
+                    ${user.metadata.is_admin ? `<span class="badge bg-warning" style="font-size: 0.9rem; padding: 0.5rem 1rem;"><i class="bi bi-shield-fill-check"></i> Administrador</span>` : ''}
                 </div>
-                <h3>${user.name || 'Usuario Desconocido'}</h3>
-                <p class="text-muted">UUID: ${user.id || '-'}</p>
-                ${user.metadata ? `
-                    <div class="mt-3">
-                        ${user.metadata.grado ? `<span class="badge bg-info me-2">Grado: ${user.metadata.grado}</span>` : ''}
-                        ${user.metadata.grupo ? `<span class="badge bg-info me-2">Grupo: ${user.metadata.grupo}</span>` : ''}
-                        ${user.metadata.is_admin ? `<span class="badge bg-warning">Administrador</span>` : ''}
-                    </div>
-                ` : ''}
+            ` : ''}
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--tertiary); border-radius: 8px; border-left: 4px solid var(--success);">
+                <i class="bi bi-check-circle-fill" style="color: var(--success); font-size: 1.5rem;"></i>
+                <p style="margin: 0.5rem 0 0; color: var(--success); font-weight: 600;">Usuario Identificado</p>
             </div>
         </div>
     `;
