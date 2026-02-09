@@ -75,11 +75,6 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
   return true;
 }
 
-bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
-  String mode;
-  return load(networks, mode);
-}
-
 bool ConfigManager::save(const std::vector<WiFiNetwork>& networks, const String& mode) {
   DynamicJsonDocument doc(2048);
   
