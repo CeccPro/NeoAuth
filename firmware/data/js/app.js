@@ -90,6 +90,22 @@ function handleMessage(data) {
     else if(data.type === 'card') {
         if (window.handleCardDetected) window.handleCardDetected(data);
     }
+    else if(data.type === 'access_event') {
+        // Evento de acceso del torniquete
+        const eventData = {
+            uid: data.uid,
+            access_granted: data.granted,
+            timestamp: data.timestamp,
+            user: data.user || null
+        };
+        if (window.handleCardDetected) window.handleCardDetected(eventData);
+        
+        // Mostrar toast según resultado
+        const message = data.granted 
+            ? `Acceso concedido: ${data.uid}` 
+            : `Acceso denegado: ${data.uid}`;
+        showToast('Torniquete', message, data.granted ? 'success' : 'error');
+    }
     else if(data.type === 'success') {
         showToast('Éxito', data.message, 'success');
         if(data.reboot) {

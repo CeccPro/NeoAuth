@@ -46,22 +46,18 @@ public:
   // Enviar información del sistema
   void sendSystemInfo(AsyncWebSocketClient* client = nullptr);
   
-  // Enviar métricas del sistema (RAM, CPU, almacenamiento)
-  void sendSystemMetrics(AsyncWebSocketClient* client = nullptr);
-  
-  // Enviar hora del RTC
-  void sendRTCTime(AsyncWebSocketClient* client = nullptr);
-  
   // Enviar resultado del escaneo WiFi
   void sendScanResult(int networkCount);
   
   // Enviar notificación de tarjeta RFID
   void notifyCardDetected(const String& uid);
-  void notifyCardDetected(const String& uid, bool accessGranted, const String& userName, JsonObject userMetadata);
   
   // Enviar notificación de conexión WiFi
   void notifyWiFiConnected(const String& ssid, const String& ip);
   void notifyWiFiDisconnected();
+  
+  // Enviar notificación de evento de acceso (torniquete)
+  void notifyAccessEvent(const String& uid, bool granted);
   
   // Tareas periódicas (llamar en loop)
   void periodicTask();
@@ -83,9 +79,7 @@ private:
   
   // Manejadores de comandos
   void handleGetConfig(AsyncWebSocketClient* client);
-  void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password, bool preferred = false);
-  void handleSetPreferredWiFi(AsyncWebSocketClient* client, const String& ssid);
-  void handleConnectToWiFi(AsyncWebSocketClient* client, const String& ssid);
+  void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password);
   void handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid);
   
   // Manejadores de modo
@@ -96,19 +90,13 @@ private:
   void handleAddAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
   void handleRemoveAuthorizedCard(AsyncWebSocketClient* client, const String& uid);
   void handleGetAuthorizedCards(AsyncWebSocketClient* client);
-  void handleUnlockTurnstile(AsyncWebSocketClient* client, JsonVariant params);
+  void handleUnlockTurnstile(AsyncWebSocketClient* client, uint16_t duration = 0);
   void handleLockTurnstile(AsyncWebSocketClient* client);
-  void handleSetBlockMode(AsyncWebSocketClient* client, bool enabled);
   void handleScanNetworks(AsyncWebSocketClient* client);
   void handleConnectWiFi(AsyncWebSocketClient* client);
   
-  // Manejadores de configuración
-  void handleUpdateConfig(AsyncWebSocketClient* client, JsonVariant config);
-  void handleResetConfig(AsyncWebSocketClient* client);
+  // Manejadores del sistema
   void handleReboot(AsyncWebSocketClient* client);
-  
-  // Manejadores de métricas
-  void handleGetSystemMetrics(AsyncWebSocketClient* client);
 };
 
 #endif // WEB_SERVER_H

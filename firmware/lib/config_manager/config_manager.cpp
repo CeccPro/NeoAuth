@@ -27,59 +27,60 @@ bool ConfigManager::begin() {
   return true;
 }
 
-bool ConfigManager::load(std::vector<WiFiNetwork>& networks) {
-  File configFile = SPIFFS.open(configFilePath, "r");
-  if (!configFile) {
-    Serial.println("No existe config.json, creando configuración por defecto");
-    createDefaultConfig();
-    return true;
-  }
-
-  size_t size = configFile.size();
-  if (size > 2048) {
-    Serial.println("Config file demasiado grande");
-    configFile.close();
+bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
+  networks.clear();
+  mode = "";
+  
+  if (!SPIFFS.exists(configFilePath)) {
+    Serial.println("[ConfigManager] Config file not found");
     return false;
   }
   
-  if (size == 0) {
-    Serial.println("Config file vacío, creando configuración por defecto");
-    configFile.close();
-    createDefaultConfig();
-    return true;
+  File file = SPIFFS.open(configFilePath, FILE_READ);
+  if (!file) {
+    Serial.println("[ConfigManager] ERROR: Failed to open config file");
+    return false;
   }
-
-  std::unique_ptr<char[]> buf(new char[size]);
-  configFile.readBytes(buf.get(), size);
-  configFile.close();
-
+  
+  // Leer archivo JSON
   DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, buf.get());
+  DeserializationError error = deserializeJson(doc, file);
+  file.close();
   
   if (error) {
-    Serial.println("Error parseando config.json: " + String(error.c_str()));
-    Serial.println("Creando configuración por defecto");
-    createDefaultConfig();
-    return true;
+    Serial.println("[ConfigManager] ERROR: Failed to parse config file");
+    return false;
   }
-
-  // Cargar redes WiFi conocidas
-  networks.clear();
-  JsonArray networksArray = doc["wifi_networks"];
-  for (JsonObject network : networksArray) {
-    WiFiNetwork wn;
-    wn.ssid = network["ssid"].as<String>();
-    wn.password = network["password"].as<String>();
-    wn.preferred = network["preferred"] | false;
-    networks.push_back(wn);
-    Serial.println("Red WiFi cargada: " + wn.ssid + (wn.preferred ? " (preferida)" : ""));
+  
+  // Cargar modo
+  if (doc.containsKey("mode")) {
+    mode = doc["mode"].as<String>();
   }
-
-  Serial.println("Configuración cargada correctamente");
+  
+  // Cargar redes WiFi
+  if (doc.containsKey("wifi_networks")) {
+    JsonArray wifiNetworks = doc["wifi_networks"].as<JsonArray>();
+    for (JsonObject net : wifiNetworks) {
+      WiFiNetwork wn;
+      wn.ssid = net["ssid"].as<String>();
+      wn.password = net["password"].as<String>();
+      networks.push_back(wn);
+    }
+  }
+  
+  Serial.println("[ConfigManager] Config loaded successfully");
+  Serial.println("[ConfigManager] Mode: " + mode);
+  Serial.println("[ConfigManager] Networks: " + String(networks.size()));
+  
   return true;
 }
 
-bool ConfigManager::save(const std::vector<WiFiNetwork>& networks) {
+bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
+  String mode;
+  return load(networks, mode);
+}
+
+bool ConfigManager::save(const std::vector<WiFiNetwork>& networks, const String& mode) {
   DynamicJsonDocument doc(2048);
   
   JsonArray networksArray = doc.createNestedArray("wifi_networks");
@@ -89,6 +90,8 @@ bool ConfigManager::save(const std::vector<WiFiNetwork>& networks) {
     network["password"] = wn.password;
     network["preferred"] = wn.preferred;
   }
+
+  doc["mode"] = mode;
 
   File configFile = SPIFFS.open(configFilePath, "w");
   if (!configFile) {
@@ -109,7 +112,8 @@ bool ConfigManager::save(const std::vector<WiFiNetwork>& networks) {
 
 bool ConfigManager::createDefaultConfig() {
   std::vector<WiFiNetwork> emptyNetworks;
-  return save(emptyNetworks);
+  
+  return save(emptyNetworks, "standalone");
 }
 
 String ConfigManager::getMode() {

@@ -22,12 +22,10 @@
 #define CMD_STATUS 0x03
 #define CMD_PING   0x04
 
-// Configuración de auto-bloqueo
-#define AUTO_LOCK_DELAY 5000  // 5 segundos en milisegundos
-
 // Estado
 bool locked = true;
-unsigned long unlockTime = 0;  // Timestamp de cuándo se desbloqueó
+unsigned long unlockTime = 0;       // Timestamp de cuándo se desbloqueó
+unsigned long autoLockDelay = 0;    // Delay en milisegundos (0 = indefinido)
 uint8_t lastCommand = 0x00;
 uint8_t responseBuffer[4];
 bool responseReady = false;
@@ -53,13 +51,14 @@ void setup() {
 }
 
 void loop() {
-  // Verificar auto-bloqueo
-  if (!locked && unlockTime > 0) {
-    if (millis() - unlockTime >= AUTO_LOCK_DELAY) {
+  // Verificar auto-bloqueo (solo si autoLockDelay > 0)
+  if (!locked && unlockTime > 0 && autoLockDelay > 0) {
+    if (millis() - unlockTime >= autoLockDelay) {
       // Tiempo cumplido, bloquear automáticamente
       locked = true;
       digitalWrite(LED_PIN, HIGH);
       unlockTime = 0;
+      autoLockDelay = 0;
       Serial.println("AUTO-BLOQUEO: Torniquete bloqueado automáticamente");
     }
   }
@@ -69,18 +68,28 @@ void loop() {
 
 // Callback cuando el master envía datos
 void receiveEvent(int numBytes) {
-  if (numBytes > 0) {
+  if (numBytes >= 1) {
     uint8_t cmd = Wire.read();
     
-    // Leer bytes restantes (si los hay)
+    // Leer parámetro (2 bytes, big endian)
+    uint16_t param = 0;
+    if (numBytes >= 3) {
+      uint8_t paramHigh = Wire.read();
+      uint8_t paramLow = Wire.read();
+      param = ((uint16_t)paramHigh << 8) | paramLow;
+    }
+    
+    // Leer bytes restantes
     while (Wire.available()) {
       Wire.read();
     }
     
     Serial.print("Comando recibido: 0x");
-    Serial.println(cmd, HEX);
+    Serial.print(cmd, HEX);
+    Serial.print(" con parámetro: 0x");
+    Serial.println(param, HEX);
     
-    processCommand(cmd);
+    processCommand(cmd, param);
   }
 }
 
@@ -97,18 +106,30 @@ void requestEvent() {
   }
 }
 
-void processCommand(uint8_t cmd) {
+void processCommand(uint8_t cmd, uint16_t param) {
   switch (cmd) {
     case CMD_UNLOCK:
       locked = false;
-      unlockTime = millis();  // Guardar timestamp para auto-bloqueo
+      unlockTime = millis();
       digitalWrite(LED_PIN, LOW);
-      Serial.println("TORNIQUETE DESBLOQUEADO (auto-bloqueo en 5s)");
+      
+      if (param == 0x0000) {
+        // Desbloqueo indefinido
+        autoLockDelay = 0;
+        Serial.println("TORNIQUETE DESBLOQUEADO INDEFINIDAMENTE");
+      } else {
+        // Desbloqueo con tiempo específico (parámetro en segundos)
+        autoLockDelay = (unsigned long)param * 1000UL;  // Convertir a milisegundos
+        Serial.print("TORNIQUETE DESBLOQUEADO por ");
+        Serial.print(param);
+        Serial.println(" segundos");
+      }
       break;
       
     case CMD_LOCK:
       locked = true;
-      unlockTime = 0;  // Cancelar auto-bloqueo
+      unlockTime = 0;
+      autoLockDelay = 0;
       digitalWrite(LED_PIN, HIGH);
       Serial.println("TORNIQUETE BLOQUEADO (manual)");
       break;

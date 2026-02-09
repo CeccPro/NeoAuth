@@ -26,8 +26,8 @@ public:
   bool begin();
   
   // Carga y guarda configuración
-  bool load(std::vector<WiFiNetwork>& networks);
-  bool save(const std::vector<WiFiNetwork>& networks);
+  bool load(std::vector<WiFiNetwork>& networks, String& mode);
+  bool save(const std::vector<WiFiNetwork>& networks, const String& mode);
   
   // Gestión del modo
   String getMode();

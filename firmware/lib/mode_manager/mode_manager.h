@@ -12,9 +12,6 @@
 
 #include <Arduino.h>
 
-// Forward declaration
-class ConfigManager;
-
 // Modos disponibles del sensor
 enum SensorMode {
   MODE_STANDALONE,   // Modo standalone: solo lectura y log
@@ -31,7 +28,7 @@ SensorMode stringToMode(const String& modeStr);
 
 class ModeManager {
 public:
-  ModeManager(ConfigManager* configManager = nullptr);
+  ModeManager();
   
   // Inicialización
   void begin();
@@ -49,7 +46,7 @@ public:
 
 private:
   SensorMode currentMode;
-  ConfigManager* configManager;
+  const char* CONFIG_MODE_FILE = "/mode.txt";
 };
 
 #endif // MODE_MANAGER_H

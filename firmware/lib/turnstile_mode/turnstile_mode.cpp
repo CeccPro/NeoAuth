@@ -6,41 +6,41 @@
 
 #include "turnstile_mode.h"
 
-TurnstileMode::TurnstileMode(I2CComm* i2cComm, APIClient* apiClient, TimeManager* timeManager, ReportManager* reportManager)
-  : i2cComm(i2cComm), apiClient(apiClient), timeManager(timeManager), reportManager(reportManager), 
-    autoLockDelay(5000), unlockTime(0), isUnlocked(false), autoLockEnabled(true), blockModeEnabled(false) {
+TurnstileMode::TurnstileMode(SideConn* sideconn)
+  : sideconn(sideconn), autoLockDelay(5000), unlockTime(0), isUnlocked(false), onAccessEventCallback(nullptr) {
 }
 
 void TurnstileMode::begin() {
   Serial.println("[TurnstileMode] Initializing turnstile mode");
-  Serial.println("[TurnstileMode] ====================================");
-  
-  // Test de conectividad con el slave
-  Serial.println("[TurnstileMode] Testing slave connection...");
-  if (pingSlave()) {
-    Serial.println("[TurnstileMode] ✓ Slave connection OK");
-  } else {
-    Serial.println("[TurnstileMode] ✗ WARNING: Slave not responding");
-    Serial.println("[TurnstileMode]   Check slave device connection");
-  }
   
   // Asegurarse de que el torniquete esté bloqueado al inicio
-  Serial.println("[TurnstileMode] Setting initial state to LOCKED");
-  
-  // Dar tiempo extra después del ping antes de enviar lock
-  delay(50);
-  
   lockTurnstile();
   
-  Serial.println("[TurnstileMode] ====================================");
-  Serial.println("[TurnstileMode] Initialization complete");
+  // Test de conectividad con el slave
+  if (pingSlave()) {
+    Serial.println("[TurnstileMode] Slave connection OK");
+  } else {
+    Serial.println("[TurnstileMode] WARNING: Slave not responding");
+  }
 }
 
 bool TurnstileMode::sendCommand(uint8_t cmd) {
-  bool success = i2cComm->sendCommand(cmd);
+  return sendCommand(cmd, 0x0000);
+}
+
+bool TurnstileMode::sendCommand(uint8_t cmd, uint16_t param) {
+  // Formato: [CMD] [PARAM_HIGH] [PARAM_LOW] [RESERVED]
+  uint8_t message[4] = {
+    cmd,
+    (uint8_t)((param >> 8) & 0xFF),  // High byte
+    (uint8_t)(param & 0xFF),          // Low byte
+    0x00                               // Reserved
+  };
+  
+  bool success = sideconn->sendMessage(message);
   
   if (success) {
-    Serial.println("[TurnstileMode] Sent command: 0x" + String(cmd, HEX));
+    Serial.printf("[TurnstileMode] Sent command: 0x%02X with param: 0x%04X\n", cmd, param);
   } else {
     Serial.println("[TurnstileMode] ERROR: Failed to send command");
   }
@@ -49,11 +49,30 @@ bool TurnstileMode::sendCommand(uint8_t cmd) {
 }
 
 bool TurnstileMode::unlockTurnstile() {
-  Serial.println("[TurnstileMode] Unlocking turnstile");
+  // Usar el delay configurado (convertir de ms a segundos)
+  uint16_t seconds = (uint16_t)(autoLockDelay / 1000);
+  return unlockTurnstile(seconds);
+}
+
+bool TurnstileMode::unlockTurnstile(uint16_t seconds) {
+  if (seconds == 0) {
+    Serial.println("[TurnstileMode] Unlocking turnstile INDEFINITELY");
+  } else {
+    Serial.printf("[TurnstileMode] Unlocking turnstile for %u seconds\n", seconds);
+  }
   
-  if (sendCommand(TurnstileCmd::CMD_UNLOCK)) {
+  if (sendCommand(TurnstileCmd::CMD_UNLOCK, seconds)) {
     isUnlocked = true;
     unlockTime = millis();
+    
+    // Si es indefinido, ajustar autoLockDelay a 0 para desactivar el auto-lock local
+    if (seconds == 0) {
+      autoLockDelay = 0;
+    } else {
+      // Actualizar autoLockDelay basado en los segundos enviados
+      autoLockDelay = seconds * 1000UL;
+    }
+    
     return true;
   }
   
@@ -73,32 +92,7 @@ bool TurnstileMode::lockTurnstile() {
 }
 
 bool TurnstileMode::pingSlave() {
-  Serial.println("[TurnstileMode] Sending PING to slave...");
-  
-  uint8_t recvMsg[4] = {0x00, 0x00, 0x00, 0x00};
-  
-  // Enviar ping y esperar respuesta
-  if (i2cComm->sendAndReceive(TurnstileCmd::CMD_PING, recvMsg, 4, 200)) {
-    // Verificar que la respuesta sea válida (debe ser 0xAA en el primer byte)
-    if (recvMsg[0] == 0xAA) {
-      Serial.println("[TurnstileMode] PONG received from slave!");
-      Serial.print("[TurnstileMode] Response: ");
-      for (int i = 0; i < 4; i++) {
-        Serial.print("0x");
-        Serial.print(recvMsg[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
-      return true;
-    } else {
-      Serial.print("[TurnstileMode] Invalid PONG response: 0x");
-      Serial.println(recvMsg[0], HEX);
-      return false;
-    }
-  }
-  
-  Serial.println("[TurnstileMode] No PONG response from slave");
-  return false;
+  return sendCommand(TurnstileCmd::CMD_PING);
 }
 
 void TurnstileMode::setAutoLockDelay(unsigned long delayMs) {
@@ -114,84 +108,6 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
-  // Si el modo de bloqueo está activo, denegar todo
-  if (blockModeEnabled) {
-    Serial.println("[TurnstileMode] ⛔ Block mode enabled - denying all access");
-    onAccessDenied(uid);
-    return;
-  }
-  
-  // Si API está habilitada, validar con API
-  if (apiClient && apiClient->isEnabled()) {
-    bool accessGranted = false;
-    String userName = "";
-    JsonObject userMetadata;
-    
-    if (apiClient->validateAccess(uid, accessGranted, userName, userMetadata)) {
-      if (accessGranted) {
-        Serial.println("[TurnstileMode] ✓ User authorized: " + userName);
-        
-        // Validar horarios con MetadataParser
-        if (!userMetadata.isNull()) {
-          MetadataParser parser(userMetadata);
-          
-          // Admin bypasea validación de horarios
-          if (parser.isAdmin()) {
-            Serial.println("[TurnstileMode] 🔑 Admin - Bypassing schedule checks");
-            onAccessGranted(uid);
-            return;
-          }
-          
-          // Obtener tiempo actual
-          TimeInfo currentTime = timeManager->getCurrentTime();
-          
-          if (currentTime.valid) {
-            String timeHHMM = currentTime.time.substring(0, 5); // "07:30"
-            
-            // Validar entrada
-            ValidationResult result = parser.validateEntry(timeHHMM, currentTime.day);
-            
-            if (result.allowed) {
-              Serial.println("[TurnstileMode] ✓ Entry allowed: " + result.reason);
-              
-              // Verificar si llegó tarde
-              if (result.isLate) {
-                Serial.println("[TurnstileMode] ⚠ Late by " + String(result.minutesLate) + " minutes");
-                
-                // Reportar si está configurado
-                if (parser.shouldReport("late_entry")) {
-                  Serial.println("[TurnstileMode] 📝 Reporting late entry");
-                  reportManager->reportLateEntry(uid, result.minutesLate);
-                }
-              }
-              
-              onAccessGranted(uid);
-            } else {
-              Serial.println("[TurnstileMode] ✗ Outside schedule: " + result.reason);
-              onAccessDenied(uid);
-            }
-          } else {
-            Serial.println("[TurnstileMode] ⚠ Cannot get time - allowing access (fail-open mode)");
-            onAccessGranted(uid);
-          }
-        } else {
-          // No metadata, permitir acceso
-          onAccessGranted(uid);
-        }
-      } else {
-        Serial.println("[TurnstileMode] ✗ Access denied by API");
-        onAccessDenied(uid);
-      }
-      return;
-    }
-    
-    // Si falla la API, denegar por seguridad
-    Serial.println("[TurnstileMode] ✗ API error - access denied for security");
-    onAccessDenied(uid);
-    return;
-  }
-  
-  // Modo local (fallback si API no disponible)
   if (isCardAuthorized(uid)) {
     onAccessGranted(uid);
   } else {
@@ -199,43 +115,34 @@ void TurnstileMode::handleCardDetected(const String& uid) {
   }
 }
 
+void TurnstileMode::setOnAccessEventCallback(OnAccessEventCallback callback) {
+  onAccessEventCallback = callback;
+}
+
 void TurnstileMode::onAccessGranted(const String& uid) {
   Serial.println("[TurnstileMode] Access GRANTED for card: " + uid);
   unlockTurnstile();
+  
+  // Notificar al callback si existe
+  if (onAccessEventCallback) {
+    onAccessEventCallback(uid, true);
+  }
 }
 
 void TurnstileMode::onAccessDenied(const String& uid) {
   Serial.println("[TurnstileMode] Access DENIED for card: " + uid);
-  // No hacer nada, el torniquete permanece bloqueado
-}
-
-void TurnstileMode::periodicTask() {
-  // Auto-bloquear el torniquete después del delay configurado (solo si está habilitado)
-  if (autoLockEnabled && isUnlocked && (millis() - unlockTime >= autoLockDelay)) {
-    Serial.println("[TurnstileMode] Auto-lock timeout reached");
-    lockTurnstile();
+  
+  // Notificar al callback si existe
+  if (onAccessEventCallback) {
+    onAccessEventCallback(uid, false);
   }
 }
 
-bool TurnstileMode::unlockIndefinitely() {
-  Serial.println("[TurnstileMode] Unlocking indefinitely (auto-lock disabled)");
-  autoLockEnabled = false;
-  return unlockTurnstile();
-}
-
-bool TurnstileMode::unlockForDuration(unsigned long durationMs) {
-  Serial.println("[TurnstileMode] Unlocking for " + String(durationMs / 1000) + " seconds");
-  autoLockEnabled = true;
-  autoLockDelay = durationMs;
-  return unlockTurnstile();
-}
-
-void TurnstileMode::setBlockMode(bool enabled) {
-  blockModeEnabled = enabled;
-  Serial.println("[TurnstileMode] Block mode " + String(enabled ? "ENABLED" : "DISABLED"));
-  
-  // Si se activa el modo bloqueo, bloquear el torniquete
-  if (enabled) {
+void TurnstileMode::periodicTask() {
+  // Auto-bloquear el torniquete después del delay configurado
+  // Si autoLockDelay es 0, no hacer auto-lock (desbloqueo indefinido)
+  if (isUnlocked && autoLockDelay > 0 && (millis() - unlockTime >= autoLockDelay)) {
+    Serial.println("[TurnstileMode] Auto-lock timeout reached");
     lockTurnstile();
   }
 }

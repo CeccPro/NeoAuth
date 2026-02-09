@@ -27,7 +27,7 @@ window.updateSystemInfo = function(data) {
     }
 };
 
-function saveGeneralConfig() {
+window.saveGeneralConfig = function() {
     const mode = document.getElementById('configMode').value;
     const heartbeat = document.getElementById('configHeartbeat').value;
     
@@ -60,7 +60,7 @@ function saveGeneralConfig() {
     showToast('Configuración', 'Configuración guardada correctamente', 'success');
 }
 
-function saveTurnstileConfig() {
+window.saveTurnstileConfig = function() {
     const autoLock = document.getElementById('configAutoLock').value;
     
     if (!autoLock) {
@@ -84,16 +84,21 @@ function saveTurnstileConfig() {
     showToast('Configuración', 'Configuración del torniquete guardada', 'success');
 }
 
-function resetConfig() {
+window.resetConfig = function() {
     if (confirm('¿Restaurar configuración de fábrica? Esta acción no se puede deshacer.')) {
         sendCommand('resetConfig');
         showToast('Configuración', 'Restableciendo configuración...', 'warning');
     }
 }
 
-function rebootDevice() {
-    if (confirm('¿Reiniciar el dispositivo?')) {
+window.rebootDevice = function() {
+    if (confirm('¿Reiniciar el dispositivo? Esta acción tomará unos segundos.')) {
         sendCommand('reboot');
-        showToast('Sistema', 'Reiniciando dispositivo...', 'warning');
+        showToast('Sistema', 'El dispositivo se reiniciará en 2 segundos...', 'warning');
+        
+        // Mostrar indicador de reconexión
+        setTimeout(() => {
+            showToast('Sistema', 'Esperando reconexión...', 'info');
+        }, 3000);
     }
-}
+};

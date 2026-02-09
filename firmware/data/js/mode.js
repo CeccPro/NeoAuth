@@ -137,40 +137,40 @@ function updateStandaloneDisplay(user) {
     `;
 }
 
-function clearCardHistory() {
+window.clearCardHistory = function() {
     if (confirm('¿Limpiar el historial de tarjetas?')) {
         cardHistory = [];
         renderCardHistory();
         showToast('Historial', 'Historial limpiado correctamente', 'success');
     }
-}
+};
 
 // ===== TURNSTILE CONTROLS =====
-function unlockTurnstile() {
+window.unlockTurnstile = function() {
     const duration = document.getElementById('unlockDuration').value;
     
     if (duration === 'indefinite') {
         if (confirm('¿Desbloquear el torniquete indefinidamente? El auto-lock se desactivará.')) {
-            sendCommand('unlockTurnstile', { indefinite: true });
+            sendCommand('unlockTurnstile', { duration: 9999 });
             showToast('Torniquete', 'Desbloqueando indefinidamente...', 'info');
         }
     } else {
         const seconds = parseInt(duration);
         if (confirm(`¿Desbloquear el torniquete por ${seconds} segundos?`)) {
-            sendCommand('unlockTurnstile', { duration: seconds * 1000 });
+            sendCommand('unlockTurnstile', { duration: seconds });
             showToast('Torniquete', `Desbloqueando por ${seconds} segundos...`, 'info');
         }
     }
 }
 
-function lockTurnstile() {
+window.lockTurnstile = function() {
     if (confirm('¿Bloquear el torniquete manualmente?')) {
-        sendCommand('lockTurnstile', {});
+        sendCommand('lockTurnstile');
         showToast('Torniquete', 'Bloqueando torniquete...', 'info');
     }
-}
+};
 
-function toggleBlockMode() {
+window.toggleBlockMode = function() {
     const checkbox = document.getElementById('blockModeToggle');
     const enabled = checkbox.checked;
     

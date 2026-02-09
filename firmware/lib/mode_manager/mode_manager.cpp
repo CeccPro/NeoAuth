@@ -5,7 +5,7 @@
  */
 
 #include "mode_manager.h"
-#include "../config_manager/config_manager.h"
+#include <SPIFFS.h>
 
 const char* modeToString(SensorMode mode) {
   switch (mode) {
@@ -25,8 +25,7 @@ SensorMode stringToMode(const String& modeStr) {
   return MODE_STANDALONE; // Default
 }
 
-ModeManager::ModeManager(ConfigManager* configManager) 
-  : currentMode(MODE_STANDALONE), configManager(configManager) {
+ModeManager::ModeManager() : currentMode(MODE_STANDALONE) {
 }
 
 void ModeManager::begin() {
@@ -40,12 +39,6 @@ void ModeManager::begin() {
 }
 
 bool ModeManager::setMode(SensorMode newMode) {
-  // Verificar si ya estamos en ese modo
-  if (currentMode == newMode) {
-    Serial.println("[ModeManager] Already in " + String(modeToString(newMode)) + " mode, no change needed");
-    return false; // Retornar false para indicar que no hubo cambio
-  }
-  
   Serial.println("[ModeManager] Changing mode from " + String(modeToString(currentMode)) + 
                  " to " + String(modeToString(newMode)));
   
@@ -56,25 +49,34 @@ bool ModeManager::setMode(SensorMode newMode) {
 }
 
 bool ModeManager::saveMode() {
-  if (!configManager) {
-    Serial.println("[ModeManager] ERROR: ConfigManager not set");
+  File file = SPIFFS.open(CONFIG_MODE_FILE, FILE_WRITE);
+  if (!file) {
+    Serial.println("[ModeManager] ERROR: Failed to open mode file for writing");
     return false;
   }
   
-  bool result = configManager->setMode(modeToString(currentMode));
-  if (result) {
-    Serial.println("[ModeManager] Mode saved: " + String(modeToString(currentMode)));
-  }
-  return result;
+  file.println(modeToString(currentMode));
+  file.close();
+  
+  Serial.println("[ModeManager] Mode saved: " + String(modeToString(currentMode)));
+  return true;
 }
 
 bool ModeManager::loadMode() {
-  if (!configManager) {
-    Serial.println("[ModeManager] ERROR: ConfigManager not set");
+  if (!SPIFFS.exists(CONFIG_MODE_FILE)) {
     return false;
   }
   
-  String modeStr = configManager->getMode();
+  File file = SPIFFS.open(CONFIG_MODE_FILE, FILE_READ);
+  if (!file) {
+    Serial.println("[ModeManager] ERROR: Failed to open mode file for reading");
+    return false;
+  }
+  
+  String modeStr = file.readStringUntil('\n');
+  modeStr.trim();
+  file.close();
+  
   currentMode = stringToMode(modeStr);
   Serial.println("[ModeManager] Mode loaded: " + String(modeToString(currentMode)));
   

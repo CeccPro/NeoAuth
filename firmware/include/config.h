@@ -12,7 +12,7 @@
 
 // Información del sensor
 #define RFID_SENSOR_ID "RFID_Reader_01"
-#define FIRMWARE_VERSION "0.2.0"
+#define FIRMWARE_VERSION "0.1.2"
 
 // Configuración del sensor RFID
 #define SS_PIN  5
@@ -40,6 +40,11 @@
 
 // Configuración de archivos
 #define CONFIG_FILE_PATH "/config.json"
+
+// Configuración SideConn (comunicación con slave)
+#define SIDECONN_CLK_PIN  25
+#define SIDECONN_DIN_PIN  26
+#define SIDECONN_DOUT_PIN 27
 
 // Configuración del modo torniquete
 #define TURNSTILE_AUTO_LOCK_DELAY 5000  // 5 segundos antes de auto-bloquear
