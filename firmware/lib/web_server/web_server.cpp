@@ -293,7 +293,7 @@ void WebServerManager::handleAddWiFi(AsyncWebSocketClient* client,
   
   // Agregar o actualizar red
   wifiManager->addNetwork(ssid, password);
-  configManager->save(wifiManager->getKnownNetworks());
+  configManager->save(wifiManager->getKnownNetworks(), modeManager->getCurrentModeString());
   
   DynamicJsonDocument responseDoc(256);
   responseDoc["type"] = "success";
@@ -308,7 +308,7 @@ void WebServerManager::handleAddWiFi(AsyncWebSocketClient* client,
 
 void WebServerManager::handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid) {
   wifiManager->removeNetwork(ssid);
-  configManager->save(wifiManager->getKnownNetworks());
+  configManager->save(wifiManager->getKnownNetworks(), modeManager->getCurrentModeString());
   
   DynamicJsonDocument responseDoc(256);
   responseDoc["type"] = "success";
