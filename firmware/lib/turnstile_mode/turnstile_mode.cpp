@@ -108,6 +108,12 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
+  // Debug: verificar estado de API
+  Serial.println("[TurnstileMode] DEBUG - apiClient pointer: " + String(apiClient != nullptr ? "OK" : "NULL"));
+  if (apiClient) {
+    Serial.println("[TurnstileMode] DEBUG - API enabled: " + String(apiClient->isEnabled() ? "YES" : "NO"));
+  }
+  
   bool granted = false;
   
   // Si la API está habilitada, usarla para validar acceso
@@ -115,7 +121,8 @@ void TurnstileMode::handleCardDetected(const String& uid) {
     Serial.println("[TurnstileMode] Validating access via API...");
     
     String userName = "";
-    JsonObject userMetadata;
+    DynamicJsonDocument metadataDoc(512);
+    JsonObject userMetadata = metadataDoc.to<JsonObject>();
     
     if (apiClient->validateAccess(uid, granted, userName, userMetadata)) {
       if (granted) {
@@ -135,6 +142,7 @@ void TurnstileMode::handleCardDetected(const String& uid) {
   }
   
   // Fallback: usar lista local si la API no está habilitada
+  Serial.println("[TurnstileMode] WARNING: API not available, using local list (insecure!)");
   Serial.println("[TurnstileMode] Validating access via local list...");
   if (isCardAuthorized(uid)) {
     onAccessGranted(uid);

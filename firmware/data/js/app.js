@@ -112,36 +112,47 @@ function handleMessage(data) {
     }
     else if(data.type === 'identification_event') {
         // Evento de identificación (modo standalone)
-        if (data.found && window.updateStandaloneDisplay) {
-            // Si el usuario fue encontrado, mostrarlo en el panel de Usuario Detectado
-            const user = {
-                id: data.user_id || null,
-                name: data.user_name || 'Usuario Desconocido',
-                email: data.user_email || null,
-                metadata: data.user_metadata || {}
-            };
-            window.updateStandaloneDisplay(user);
-            showToast('Identificación', `¡Bienvenido ${user.name}!`, 'success');
-        } else {
-            // Si no se encontró, mostrarlo en el historial como denegado
-            if (window.handleCardDetected) {
-                window.handleCardDetected({
+        console.log('[identification_event] Received:', data);
+        
+        if (window.updateStandaloneDisplay) {
+            if (data.found) {
+                // Usuario encontrado - mostrar en panel superior
+                const user = {
+                    id: data.user_id || null,
+                    name: data.user_name || 'Usuario Desconocido',
+                    email: data.user_email || null,
+                    metadata: data.user_metadata || {},
+                    uid: data.uid
+                };
+                console.log('[identification_event] Calling updateStandaloneDisplay with FOUND user:', user);
+                window.updateStandaloneDisplay(user, true);
+                showToast('Identificación', `¡Bienvenido ${user.name}!`, 'success');
+            } else {
+                // Usuario NO encontrado - mostrar en panel superior
+                const unknownUser = {
                     uid: data.uid,
-                    timestamp: data.timestamp,
-                    access_granted: false
-                });
+                    name: null,
+                    email: null,
+                    metadata: null
+                };
+                console.log('[identification_event] Calling updateStandaloneDisplay with NOT FOUND user:', unknownUser);
+                window.updateStandaloneDisplay(unknownUser, false);
+                showToast('Identificación', `Tarjeta no registrada: ${data.uid}`, 'warning');
             }
-            showToast('Identificación', `Tarjeta no registrada: ${data.uid}`, 'warning');
+        } else {
+            console.error('[identification_event] window.updateStandaloneDisplay not found!');
         }
         
-        // Siempre agregar al historial
-        addToCardHistory({
-            uid: data.uid,
-            timestamp: data.timestamp,
-            found: data.found,
-            user_name: data.user_name,
-            user_email: data.user_email
-        });
+        // Agregar al historial (UNA SOLA VEZ) - addToCardHistory tiene prevención de duplicados
+        if (window.addToCardHistory) {
+            window.addToCardHistory({
+                uid: data.uid,
+                timestamp: data.timestamp,
+                found: data.found,
+                user_name: data.user_name,
+                user_email: data.user_email
+            });
+        }
     }
     else if(data.type === 'success') {
         // Solo mostrar toast si no tiene requires_reboot

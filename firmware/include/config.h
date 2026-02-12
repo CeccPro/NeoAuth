@@ -11,7 +11,7 @@
 #define CONFIG_H
 
 // Información del sensor
-#define RFID_SENSOR_ID "RFID_Reader_01"
+#define RFID_SENSOR_ID "NEOAUTH_DEMO_SENSOR_001"
 #define FIRMWARE_VERSION "0.1.2"
 
 // Configuración del sensor RFID
@@ -25,7 +25,7 @@
 #define SPI_SS   5
 
 // Configuración del Access Point
-#define AP_SSID "Sensor_RFID_AP"
+#define AP_SSID "NEOAUTH_SENSOR_001"
 #define AP_PASSWORD "12345678" // Contraseña del AP (mínimo 8 caracteres)
 
 // Configuración del servidor web
