@@ -91,18 +91,23 @@ function handleMessage(data) {
         AppState.rtc = data;
         if (window.updateClock) window.updateClock();
     }
-    else if(data.type === 'card') {
-        if (window.handleCardDetected) window.handleCardDetected(data);
-    }
     else if(data.type === 'access_event') {
         // Evento de acceso del torniquete
+        console.log('[access_event] Received:', data);
+        
         const eventData = {
             uid: data.uid,
             access_granted: data.granted,
             timestamp: data.timestamp,
             user: data.user || null
         };
-        if (window.handleCardDetected) window.handleCardDetected(eventData);
+        
+        console.log('[access_event] Calling handleCardDetected with:', eventData);
+        if (window.handleCardDetected) {
+            window.handleCardDetected(eventData);
+        } else {
+            console.error('[access_event] handleCardDetected not found!');
+        }
         
         // Mostrar toast según resultado
         const message = data.granted 
@@ -112,8 +117,7 @@ function handleMessage(data) {
     }
     else if(data.type === 'identification_event') {
         // Evento de identificación (modo standalone)
-        console.log('[identification_event] Received:', data);
-        
+
         if (window.updateStandaloneDisplay) {
             if (data.found) {
                 // Usuario encontrado - mostrar en panel superior

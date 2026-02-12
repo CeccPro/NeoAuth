@@ -38,6 +38,11 @@ i:
 up:
 	@cd $(PROJECT_DIR)/firmware && make up DEVICE=$(DEVICE)
 
+uapi: 
+	@git add .
+	@git commit -m "Update"
+	@git push
+
 # Nombres largos
 deploy: d
 flash: f
@@ -50,6 +55,7 @@ erase: e
 test: t
 info: i
 update: up
+update-api: uapi
 
 help:
 	@echo "Comandos disponibles:"

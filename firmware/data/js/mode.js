@@ -41,11 +41,9 @@ window.handleCardDetected = function(data) {
 };
 
 function updateStandaloneDisplay(user, found) {
-    console.log('[updateStandaloneDisplay] Called with:', { user, found });
     const userDisplay = document.getElementById('standaloneUserDisplay');
     
     if (!userDisplay) {
-        console.error('[updateStandaloneDisplay] Element not found: standaloneUserDisplay');
         return;
     }
     
@@ -110,7 +108,6 @@ window.addToCardHistory = function(data) {
     });
     
     if (recentDuplicate) {
-        console.log('[Mode] Duplicate card detection prevented:', data.uid);
         return; // No agregar si es duplicado
     }
     

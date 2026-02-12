@@ -161,7 +161,10 @@ void TurnstileMode::onAccessGranted(const String& uid) {
   
   // Notificar al callback si existe
   if (onAccessEventCallback) {
+    Serial.println("[TurnstileMode] Calling onAccessEventCallback with granted=true");
     onAccessEventCallback(uid, true);
+  } else {
+    Serial.println("[TurnstileMode] WARNING: No callback registered!");
   }
 }
 

@@ -185,15 +185,28 @@ String ConfigManager::getAPIBaseURL() {
 
 bool ConfigManager::getAPIEnabled() {
   File configFile = SPIFFS.open(configFilePath, "r");
-  if (!configFile) return false;
+  if (!configFile) {
+    Serial.println("[ConfigManager] getAPIEnabled: Could not open config file");
+    return false;
+  }
   
   DynamicJsonDocument doc(2048);
   DeserializationError error = deserializeJson(doc, configFile);
   configFile.close();
   
-  if (error || !doc.containsKey("api")) return false;
+  if (error) {
+    Serial.println("[ConfigManager] getAPIEnabled: Parse error");
+    return false;
+  }
   
-  return doc["api"]["enabled"] | false;
+  if (!doc.containsKey("api")) {
+    Serial.println("[ConfigManager] getAPIEnabled: No 'api' key in config");
+    return false;
+  }
+  
+  bool enabled = doc["api"]["enabled"] | false;
+  Serial.println("[ConfigManager] getAPIEnabled: " + String(enabled ? "true" : "false"));
+  return enabled;
 }
 
 unsigned long ConfigManager::getAPIHeartbeatInterval() {

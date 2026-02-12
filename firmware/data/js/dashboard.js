@@ -1,5 +1,4 @@
 // ===== DASHBOARD MODULE =====
-let ramChart, storageChart;
 
 window.updateDashboard = function() {
     updateMetricsCards();
@@ -58,26 +57,25 @@ function updateCharts() {
     const metrics = AppState.systemMetrics;
     
     // Actualizar RAM Chart
-    if (ramChart) {
+    if (window.ramChart) {
         const ramUsed = metrics.ram.used || 0;
         const ramFree = (metrics.ram.total || 0) - ramUsed;
-        ramChart.data.datasets[0].data = [ramUsed, ramFree];
-        ramChart.update('none'); // 'none' para no animar
+        window.ramChart.data.datasets[0].data = [ramUsed, ramFree];
+        window.ramChart.update('none'); // 'none' para no animar
     }
     
     // Actualizar Storage Chart
-    if (storageChart) {
+    if (window.storageChart) {
         const storageUsed = metrics.storage.used || 0;
         const storageFree = (metrics.storage.total || 0) - storageUsed;
-        storageChart.data.datasets[0].data = [storageUsed, storageFree];
-        storageChart.update('none');
+        window.storageChart.data.datasets[0].data = [storageUsed, storageFree];
+        window.storageChart.update('none');
     }
     
     // Actualizar CPU Chart
-    const cpuCtx = document.getElementById('cpuChart');
-    if (cpuCtx && cpuCtx.chart) {
-        cpuCtx.chart.data.datasets[0].data = [metrics.cpu || 0];
-        cpuCtx.chart.update('none');
+    if (window.cpuChart) {
+        window.cpuChart.data.datasets[0].data = [metrics.cpu || 0];
+        window.cpuChart.update('none');
     }
 }
 
@@ -99,10 +97,21 @@ window.updateClock = function() {
 };
 
 function initCharts() {
+    // Destruir charts existentes si los hay
+    if (window.ramChart && typeof window.ramChart.destroy === 'function') {
+        window.ramChart.destroy();
+    }
+    if (window.storageChart && typeof window.storageChart.destroy === 'function') {
+        window.storageChart.destroy();
+    }
+    if (window.cpuChart && typeof window.cpuChart.destroy === 'function') {
+        window.cpuChart.destroy();
+    }
+    
     // RAM Chart
     const ramCtx = document.getElementById('ramChart');
     if (ramCtx) {
-        ramChart = new Chart(ramCtx, {
+        window.ramChart = new Chart(ramCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Usado', 'Libre'],
@@ -139,7 +148,7 @@ function initCharts() {
     // Storage Chart
     const storageCtx = document.getElementById('storageChart');
     if (storageCtx) {
-        storageChart = new Chart(storageCtx, {
+        window.storageChart = new Chart(storageCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Usado', 'Libre'],
@@ -176,7 +185,7 @@ function initCharts() {
     // CPU Gauge (usando bar chart horizontal)
     const cpuCtx = document.getElementById('cpuChart');
     if (cpuCtx) {
-        cpuCtx.chart = new Chart(cpuCtx, {
+        window.cpuChart = new Chart(cpuCtx, {
             type: 'bar',
             data: {
                 labels: ['CPU'],

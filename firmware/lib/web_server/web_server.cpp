@@ -211,6 +211,8 @@ void WebServerManager::notifyWiFiDisconnected() {
 }
 
 void WebServerManager::notifyAccessEvent(const String& uid, bool granted) {
+  Serial.println("[WebServer] notifyAccessEvent called - UID: " + uid + " Granted: " + String(granted ? "YES" : "NO"));
+  
   DynamicJsonDocument doc(256);
   doc["type"] = "access_event";
   doc["uid"] = uid;
@@ -218,6 +220,8 @@ void WebServerManager::notifyAccessEvent(const String& uid, bool granted) {
   doc["timestamp"] = millis();
   String msg;
   serializeJson(doc, msg);
+  
+  Serial.println("[WebServer] Sending to clients: " + msg);
   notifyClients(msg);
 }
 

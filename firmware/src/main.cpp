@@ -261,22 +261,30 @@ void setup() {
   bool apiEnabled = configManager.getAPIEnabled();
   unsigned long heartbeatInterval = configManager.getAPIHeartbeatInterval();
   
+  Serial.println("[Setup] ========== API Configuration ==========");
+  Serial.println("[Setup] Base URL from config: " + apiBaseURL);
+  Serial.println("[Setup] Enabled from config: " + String(apiEnabled ? "YES" : "NO"));
+  Serial.println("[Setup] Heartbeat Interval: " + String(heartbeatInterval / 1000) + "s");
+  
   if (!apiBaseURL.isEmpty()) {
     apiClient.setBaseURL(apiBaseURL);
     apiClient.setEnabled(apiEnabled);
     timeManager.setBaseURL(apiBaseURL);
     
-    Serial.println("[Setup] API Configuration:");
-    Serial.println("  Base URL: " + apiBaseURL);
-    Serial.println("  Enabled: " + String(apiEnabled ? "Yes" : "No"));
-    Serial.println("  Heartbeat Interval: " + String(heartbeatInterval / 1000) + "s");
+    Serial.println("[Setup] ✓ API Client configured");
+    Serial.println("[Setup]   Base URL: " + apiBaseURL);
+    Serial.println("[Setup]   Enabled: " + String(apiEnabled ? "Yes" : "No"));
+    Serial.println("[Setup]   isEnabled(): " + String(apiClient.isEnabled() ? "YES" : "NO"));
     
     // Configurar intervalo de heartbeat
     tasks[TASK_API_HEARTBEAT].interval = heartbeatInterval;
     
     // NOTA: Las tareas de API se habilitarán automáticamente cuando se conecte WiFi
     // (ver callback wifiManager.setOnConnectedCallback)
+  } else {
+    Serial.println("[Setup] ✗ API Base URL is empty - API disabled");
   }
+  Serial.println("[Setup] ==========================================");
   
   // Inicializar Mode Manager (carga de /mode.txt si no hay en config.json)
   modeManager.begin();
