@@ -14,7 +14,7 @@
 
 // Información del sensor
 #define RFID_SENSOR_ID "NEOAUTH_DEMO_SENSOR_001"
-#define FIRMWARE_VERSION "0.5.1"
+#define FIRMWARE_VERSION "0.8.0"
 
 // Configuración del sensor RFID
 #define SS_PIN  5

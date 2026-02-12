@@ -51,11 +51,15 @@ void AdminMode::handleCardDetected(const String& uid) {
     Serial.println("  Active: " + String(cardInfo.isActive ? "Yes" : "No"));
   } else {
     Serial.println("[AdminMode] ✗ Card not registered - new card");
+    Serial.println("  UID: " + cardInfo.uid);
   }
   
-  // Notificar al callback
+  // Notificar al callback (SIEMPRE, incluso si no se encontró)
   if (onCardDetectedCallback) {
+    Serial.println("[AdminMode] Calling callback with UID: " + cardInfo.uid + " Found: " + String(found ? "YES" : "NO"));
     onCardDetectedCallback(cardInfo, found);
+  } else {
+    Serial.println("[AdminMode] WARNING: No callback registered!");
   }
 }
 
@@ -73,6 +77,14 @@ bool AdminMode::fetchCardInfo(const String& uid, CardInfo& cardInfo) {
   
   if (!apiClient->getCardInfo(uid, found, userId, userName, userEmail, role, isActive, userMetadata)) {
     Serial.println("[AdminMode] API error fetching card info");
+    // Error de API - llenar cardInfo con UID y retornar false
+    cardInfo.uid = uid;
+    cardInfo.userId = "";
+    cardInfo.userName = "";
+    cardInfo.userEmail = "";
+    cardInfo.role = "";
+    cardInfo.isActive = false;
+    cardInfo.metadata = "{}";
     return false;
   }
   
