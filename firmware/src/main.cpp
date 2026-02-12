@@ -331,17 +331,17 @@ void setup() {
       tasks[TASK_API_HEARTBEAT].enabled = true;
       tasks[TASK_TIME_SYNC].enabled = true;
       
-      // Hacer un heartbeat inicial inmediatamente
+      // Sincronizar tiempo primero para configurar RTC
+      Serial.println("[Setup] Syncing time...");
+      timeManager.syncTime();
+      
+      // Hacer un heartbeat inicial después de sincronizar tiempo
       Serial.println("[Setup] Sending initial heartbeat...");
       if (apiClient.sendHeartbeat()) {
         Serial.println("[Setup] ✓ Initial heartbeat successful");
       } else {
         Serial.println("[Setup] ✗ Initial heartbeat failed");
       }
-      
-      // Sincronizar tiempo inmediatamente
-      Serial.println("[Setup] Syncing time...");
-      timeManager.syncTime();
     }
   });
   
@@ -361,17 +361,17 @@ void setup() {
         tasks[TASK_API_HEARTBEAT].enabled = true;
         tasks[TASK_TIME_SYNC].enabled = true;
         
-        // Hacer un heartbeat inicial inmediatamente
+        // Sincronizar tiempo primero para configurar RTC
+        Serial.println("[Setup] Syncing time...");
+        timeManager.syncTime();
+        
+        // Hacer un heartbeat inicial después de sincronizar tiempo
         Serial.println("[Setup] Sending initial heartbeat...");
         if (apiClient.sendHeartbeat()) {
           Serial.println("[Setup] ✓ Initial heartbeat successful");
         } else {
           Serial.println("[Setup] ✗ Initial heartbeat failed");
         }
-        
-        // Sincronizar tiempo inmediatamente
-        Serial.println("[Setup] Syncing time...");
-        timeManager.syncTime();
       }
     }
   }

@@ -14,6 +14,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include <sys/time.h>
 
 struct TimeInfo {
   String time;      // "HH:MM:SS"

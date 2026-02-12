@@ -118,7 +118,9 @@ bool APIClient::sendHeartbeat() {
 }
 
 bool APIClient::sendHeartbeat(time_t& unixTime) {
-  String timestamp = String(millis());
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
   String token = generateAuthToken(timestamp);
   
   DynamicJsonDocument payload(256);
@@ -153,7 +155,9 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
     return false;
   }
   
-  String timestamp = String(millis());
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
   String token = generateAuthToken(timestamp);
   
   DynamicJsonDocument payload(512);
@@ -207,7 +211,9 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
 }
 
 bool APIClient::whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata) {
-  String timestamp = String(millis());
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
   String token = generateAuthToken(timestamp);
   
   DynamicJsonDocument payload(512);

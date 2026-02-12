@@ -59,12 +59,21 @@ bool TimeManager::syncTime() {
     cachedTime.day = doc["day"] | "";
     cachedTime.valid = true;
     
+    // Configurar el RTC del sistema con el timestamp Unix
+    time_t unixTime = doc["unix"] | 0;
+    if (unixTime > 0) {
+      timeval tv = { unixTime, 0 };
+      settimeofday(&tv, nullptr);
+      Serial.println("[TimeManager] ✓ System RTC configured");
+    }
+    
     lastSyncTime = millis();
     
     Serial.println("[TimeManager] ✓ Time synced:");
     Serial.println("  Time: " + cachedTime.time);
     Serial.println("  Date: " + cachedTime.date);
     Serial.println("  Day: " + cachedTime.day);
+    Serial.println("  Unix: " + String(unixTime));
     
     http.end();
     return true;
