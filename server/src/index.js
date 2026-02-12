@@ -505,14 +505,19 @@ app.post('/api/v1/cards', authenticateSensor, async (req, res) => {
     });
   }
 
-  // Crear usuario
+  // Crear usuario con role en metadata
+  const userMetadata = metadata || {};
+  if (role) {
+    userMetadata.role = role;
+  }
+  
   const { data: user, error: userError } = await supabase
     .from('users')
     .insert({
       name: user_name,
       email: user_email || null,
       is_active: true,
-      metadata: metadata || {}
+      metadata: userMetadata
     })
     .select()
     .single();
@@ -531,7 +536,6 @@ app.post('/api/v1/cards', authenticateSensor, async (req, res) => {
     .insert({
       uid,
       user_id: user.id,
-      role: role || 'user',
       is_active: true
     })
     .select()
@@ -553,7 +557,7 @@ app.post('/api/v1/cards', authenticateSensor, async (req, res) => {
     card: {
       uid: card.uid,
       user_id: card.user_id,
-      role: card.role,
+      role: user.metadata?.role || 'user',
       user_name: user.name,
       user_email: user.email
     }
@@ -591,11 +595,21 @@ app.put('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
   }
 
   // Actualizar usuario si se proporcionan datos
-  if (user_name || user_email || metadata) {
+  if (user_name || user_email || role || metadata) {
     const updates = {};
     if (user_name) updates.name = user_name;
     if (user_email !== undefined) updates.email = user_email;
-    if (metadata) updates.metadata = metadata;
+    
+    // Merge role into metadata
+    const existingMetadata = card.users.metadata || {};
+    const newMetadata = { ...existingMetadata };
+    if (metadata) {
+      Object.assign(newMetadata, metadata);
+    }
+    if (role) {
+      newMetadata.role = role;
+    }
+    updates.metadata = newMetadata;
 
     const { error: userUpdateError } = await supabase
       .from('users')
@@ -612,9 +626,8 @@ app.put('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
   }
 
   // Actualizar tarjeta si se proporcionan datos
-  if (role !== undefined || is_active !== undefined) {
+  if (is_active !== undefined) {
     const cardUpdates = {};
-    if (role) cardUpdates.role = role;
     if (is_active !== undefined) cardUpdates.is_active = is_active;
 
     const { error: cardUpdateError } = await supabase
@@ -668,11 +681,21 @@ app.post('/api/v1/cards/:uid/update', authenticateSensor, async (req, res) => {
   }
 
   // Actualizar usuario si se proporcionan datos
-  if (user_name || user_email || metadata) {
+  if (user_name || user_email || role || metadata) {
     const updates = {};
     if (user_name) updates.name = user_name;
     if (user_email !== undefined) updates.email = user_email;
-    if (metadata) updates.metadata = metadata;
+    
+    // Merge role into metadata
+    const existingMetadata = card.users.metadata || {};
+    const newMetadata = { ...existingMetadata };
+    if (metadata) {
+      Object.assign(newMetadata, metadata);
+    }
+    if (role) {
+      newMetadata.role = role;
+    }
+    updates.metadata = newMetadata;
 
     const { error: userUpdateError } = await supabase
       .from('users')
@@ -689,9 +712,8 @@ app.post('/api/v1/cards/:uid/update', authenticateSensor, async (req, res) => {
   }
 
   // Actualizar tarjeta si se proporcionan datos
-  if (role !== undefined || is_active !== undefined) {
+  if (is_active !== undefined) {
     const cardUpdates = {};
-    if (role) cardUpdates.role = role;
     if (is_active !== undefined) cardUpdates.is_active = is_active;
 
     const { error: cardUpdateError } = await supabase
@@ -836,7 +858,7 @@ app.post('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
     status: 'ok',
     card: {
       uid: card.uid,
-      role: card.role,
+      role: card.users.metadata?.role || 'user',
       is_active: card.is_active,
       created_at: card.created_at,
       user: card.users
