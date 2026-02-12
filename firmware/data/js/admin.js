@@ -1,5 +1,52 @@
 // ===== ADMIN MODE MODULE =====
 
+// Presets de metadata según rol
+const ROLE_METADATA_PRESETS = {
+    admin: {
+        role: 'admin',
+        permissions: ['read', 'write', 'delete', 'manage_users'],
+        priority: 'high',
+        show_in_logs: true
+    },
+    teacher: {
+        role: 'teacher',
+        permissions: ['read', 'write'],
+        department: '',
+        grade_level: '',
+        show_in_logs: true
+    },
+    student: {
+        role: 'student',
+        permissions: ['read'],
+        grade: '',
+        group: '',
+        student_id: '',
+        show_in_logs: true
+    },
+    staff: {
+        role: 'staff',
+        permissions: ['read'],
+        department: '',
+        position: '',
+        show_in_logs: true
+    },
+    guest: {
+        role: 'guest',
+        permissions: ['read'],
+        valid_until: '',
+        invited_by: '',
+        show_in_logs: false
+    }
+};
+
+function applyMetadataPreset(role) {
+    const metadataTextarea = document.getElementById('adminCardMetadata');
+    if (metadataTextarea && ROLE_METADATA_PRESETS[role]) {
+        const preset = ROLE_METADATA_PRESETS[role];
+        metadataTextarea.value = JSON.stringify(preset, null, 2);
+    }
+}
+
 window.updateAdminInfo = function(data) {
     const currentMode = data.current_mode;
     const adminPanel = document.getElementById('adminPanel');
@@ -47,7 +94,7 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Rol de la Tarjeta</label>
-                            <select class="form-select" id="adminCardRole">
+                            <select class="form-select" id="adminCardRole" onchange="applyMetadataPreset(this.value)">
                                 <option value="admin" ${cardInfo.role === 'admin' ? 'selected' : ''}>Administrador</option>
                                 <option value="teacher" ${cardInfo.role === 'teacher' ? 'selected' : ''}>Profesor</option>
                                 <option value="student" ${cardInfo.role === 'student' ? 'selected' : ''}>Estudiante</option>
@@ -67,8 +114,8 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                         
                         <div class="mb-3">
                             <label class="form-label">Metadatos (JSON)</label>
-                            <textarea class="form-control" id="adminCardMetadata" rows="3" placeholder='{"grado": "4", "grupo": "A"}'>${JSON.stringify(cardInfo.metadata || {}, null, 2)}</textarea>
-                            <small class="text-muted">Información adicional en formato JSON</small>
+                            <textarea class="form-control" id="adminCardMetadata" rows="8" placeholder='{"role": "user"}'>${JSON.stringify(cardInfo.metadata || {}, null, 2)}</textarea>
+                            <small class="text-muted">Información adicional en formato JSON. Cambia el rol para ver presets.</small>
                         </div>
                     </div>
                 </div>
@@ -103,7 +150,7 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">UID de la Tarjeta</label>
-                            <input type="text" class="form-control" id="adminCardUID" value="${cardInfo.uid}" readonly>
+                            <input type="text" class="form-control" id="adminCardUID" value="${cardInfo.uid || ''}" readonly>
                         </div>
                         
                         <div class="mb-3">
@@ -120,7 +167,7 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Rol de la Tarjeta *</label>
-                            <select class="form-select" id="adminCardRole">
+                            <select class="form-select" id="adminCardRole" onchange="applyMetadataPreset(this.value)">
                                 <option value="student" selected>Estudiante</option>
                                 <option value="teacher">Profesor</option>
                                 <option value="staff">Personal</option>
@@ -132,8 +179,8 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                         
                         <div class="mb-3">
                             <label class="form-label">Metadatos (JSON)</label>
-                            <textarea class="form-control" id="adminCardMetadata" rows="3" placeholder='{"grado": "4", "grupo": "A"}'></textarea>
-                            <small class="text-muted">Información adicional en formato JSON (opcional)</small>
+                            <textarea class="form-control" id="adminCardMetadata" rows="8" placeholder='{"role": "student"}'></textarea>
+                            <small class="text-muted">Se auto-completa según el rol seleccionado. Puedes editar manualmente.</small>
                         </div>
                     </div>
                 </div>
@@ -154,10 +201,23 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
 };
 
 window.registerCard = function(uid) {
+    // Si no se proporciona UID como parámetro, intentar leerlo del input
+    if (!uid || uid === '') {
+        const uidInput = document.getElementById('adminCardUID');
+        if (uidInput) {
+            uid = uidInput.value.trim();
+        }
+    }
+    
     const userName = document.getElementById('adminUserName').value.trim();
     const userEmail = document.getElementById('adminUserEmail').value.trim();
     const role = document.getElementById('adminCardRole').value;
     const metadataStr = document.getElementById('adminCardMetadata').value.trim();
+    
+    if (!uid) {
+        showToast('Error', 'No se pudo obtener el UID de la tarjeta', 'error');
+        return;
+    }
     
     if (!userName) {
         showToast('Error', 'El nombre del usuario es obligatorio', 'error');
@@ -187,11 +247,24 @@ window.registerCard = function(uid) {
 };
 
 window.updateCard = function(uid) {
+    // Si no se proporciona UID como parámetro, intentar leerlo del input
+    if (!uid || uid === '') {
+        const uidInput = document.getElementById('adminCardUID');
+        if (uidInput) {
+            uid = uidInput.value.trim();
+        }
+    }
+    
     const userName = document.getElementById('adminUserName').value.trim();
     const userEmail = document.getElementById('adminUserEmail').value.trim();
     const role = document.getElementById('adminCardRole').value;
     const isActive = document.getElementById('adminCardActive').value === 'true';
     const metadataStr = document.getElementById('adminCardMetadata').value.trim();
+    
+    if (!uid) {
+        showToast('Error', 'No se pudo obtener el UID de la tarjeta', 'error');
+        return;
+    }
     
     if (!userName) {
         showToast('Error', 'El nombre del usuario es obligatorio', 'error');
@@ -222,6 +295,19 @@ window.updateCard = function(uid) {
 };
 
 window.deleteCard = function(uid) {
+    // Si no se proporciona UID como parámetro, intentar leerlo del input
+    if (!uid || uid === '') {
+        const uidInput = document.getElementById('adminCardUID');
+        if (uidInput) {
+            uid = uidInput.value.trim();
+        }
+    }
+    
+    if (!uid) {
+        showToast('Error', 'No se pudo obtener el UID de la tarjeta', 'error');
+        return;
+    }
+    
     if (!confirm('¿Estás seguro de que deseas eliminar esta tarjeta?\n\nEsta acción no se puede deshacer.')) {
         return;
     }

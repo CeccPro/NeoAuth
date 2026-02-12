@@ -85,8 +85,16 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
 }
 
 bool ConfigManager::save(const std::vector<WiFiNetwork>& networks, const String& mode) {
+  // Cargar configuración existente primero para preservar otras secciones
   DynamicJsonDocument doc(2048);
   
+  File readFile = SPIFFS.open(configFilePath, "r");
+  if (readFile) {
+    deserializeJson(doc, readFile);
+    readFile.close();
+  }
+  
+  // Actualizar solo las secciones que se están modificando
   JsonArray networksArray = doc.createNestedArray("wifi_networks");
   for (const auto& wn : networks) {
     JsonObject network = networksArray.createNestedObject();
@@ -110,6 +118,10 @@ bool ConfigManager::save(const std::vector<WiFiNetwork>& networks, const String&
   }
 
   configFile.close();
+  
+  // Actualizar cache con la configuración completa guardada
+  *configCache = doc;
+  
   Serial.println("Configuración guardada correctamente");
   return true;
 }
@@ -265,6 +277,12 @@ bool ConfigManager::setAPIConfig(const String& baseURL, bool enabled, unsigned l
   }
   
   configFile.close();
+  
+  // Actualizar cache con la configuración completa guardada
+  *configCache = doc;
+  
+  Serial.println("[ConfigManager] API configuration updated and cache refreshed");
+  
   return true;
 }
 
