@@ -159,7 +159,7 @@ bool ConfigManager::setMode(const String& mode) {
     return false;
   }
   
-  // Actualizar el modo
+  // Actualizar el modo (preservando todo lo demás)
   doc["mode"] = mode;
   
   // Guardar
@@ -177,10 +177,10 @@ bool ConfigManager::setMode(const String& mode) {
 
   configFile.close();
   
-  // Actualizar cache con la nueva configuración
-  delete configCache;
-  configCache = new DynamicJsonDocument(2048);
+  // Actualizar cache con la nueva configuración completa
   *configCache = doc;
+  
+  Serial.println("[ConfigManager] Mode updated and cache refreshed");
   
   return true;
 }

@@ -77,7 +77,7 @@ window.updateAdminCardDisplay = function(cardInfo, found) {
                 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-between">
                     <button class="btn btn-danger" onclick="deleteCard('${cardInfo.uid}')">
-                        <i class="bi bi-trash-fill"></i> Eliminar Tarjeta
+                        <i class="bi bi-trash-fill"></i> Desactivar Tarjeta
                     </button>
                     <div class="d-grid gap-2 d-md-flex">
                         <button class="btn btn-secondary" onclick="clearAdminForm()">
