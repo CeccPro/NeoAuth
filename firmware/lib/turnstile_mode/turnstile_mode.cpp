@@ -6,8 +6,8 @@
 
 #include "turnstile_mode.h"
 
-TurnstileMode::TurnstileMode(SideConn* sideconn)
-  : sideconn(sideconn), autoLockDelay(5000), unlockTime(0), isUnlocked(false), onAccessEventCallback(nullptr) {
+TurnstileMode::TurnstileMode(SideConn* sideconn, APIClient* apiClient)
+  : sideconn(sideconn), apiClient(apiClient), autoLockDelay(5000), unlockTime(0), isUnlocked(false), onAccessEventCallback(nullptr) {
 }
 
 void TurnstileMode::begin() {
@@ -108,6 +108,34 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
+  bool granted = false;
+  
+  // Si la API está habilitada, usarla para validar acceso
+  if (apiClient && apiClient->isEnabled()) {
+    Serial.println("[TurnstileMode] Validating access via API...");
+    
+    String userName = "";
+    JsonObject userMetadata;
+    
+    if (apiClient->validateAccess(uid, granted, userName, userMetadata)) {
+      if (granted) {
+        Serial.println("[TurnstileMode] API: Access granted for " + userName);
+        onAccessGranted(uid);
+      } else {
+        Serial.println("[TurnstileMode] API: Access denied");
+        onAccessDenied(uid);
+      }
+      return;
+    } else {
+      // Si falla la API, denegar por seguridad
+      Serial.println("[TurnstileMode] API validation failed - access denied by default");
+      onAccessDenied(uid);
+      return;
+    }
+  }
+  
+  // Fallback: usar lista local si la API no está habilitada
+  Serial.println("[TurnstileMode] Validating access via local list...");
   if (isCardAuthorized(uid)) {
     onAccessGranted(uid);
   } else {

@@ -12,6 +12,7 @@
 
 #include <Arduino.h>
 #include <sideconn.h>
+#include <api_client.h>
 #include <vector>
 #include <set>
 
@@ -33,7 +34,7 @@ namespace TurnstileCmd {
 
 class TurnstileMode {
 public:
-  TurnstileMode(SideConn* sideconn);
+  TurnstileMode(SideConn* sideconn, APIClient* apiClient);
   
   // Inicialización
   void begin();
@@ -69,6 +70,7 @@ public:
 
 private:
   SideConn* sideconn;
+  APIClient* apiClient;
   std::set<String> authorizedCards;
   
   unsigned long autoLockDelay;  // Tiempo antes de auto-bloquear (ms)

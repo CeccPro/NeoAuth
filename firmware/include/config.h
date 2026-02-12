@@ -41,10 +41,10 @@
 // Configuración de archivos
 #define CONFIG_FILE_PATH "/config.json"
 
-// Configuración SideConn (comunicación con slave)
-#define SIDECONN_CLK_PIN  25
-#define SIDECONN_DIN_PIN  26
-#define SIDECONN_DOUT_PIN 27
+// Configuración SideConn (comunicación I2C con slave)
+#define SIDECONN_SDA_PIN      26
+#define SIDECONN_SCL_PIN      25
+#define SIDECONN_SLAVE_ADDR   0x08  // Dirección I2C del slave Arduino
 
 // Configuración del modo torniquete
 #define TURNSTILE_AUTO_LOCK_DELAY 5000  // 5 segundos antes de auto-bloquear

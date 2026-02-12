@@ -21,6 +21,7 @@ class WiFiManager;
 class ConfigManager;
 class ModeManager;
 class TurnstileMode;
+class TimeManager;
 
 // Callback types
 typedef std::function<void(const String& ssid, const String& password)> OnAddWiFiCallback;
@@ -39,12 +40,15 @@ public:
   // Agregar referencias al modo manager y turnstile
   void setModeManager(ModeManager* modeMgr);
   void setTurnstileMode(TurnstileMode* turnstileModePtr);
+  void setTimeManager(TimeManager* timeMgr);
   
   // Notificar a todos los clientes WebSocket
   void notifyClients(const String& message);
   
   // Enviar información del sistema
   void sendSystemInfo(AsyncWebSocketClient* client = nullptr);
+  void sendSystemMetrics(AsyncWebSocketClient* client = nullptr);
+  void sendTimeInfo(AsyncWebSocketClient* client = nullptr);
   
   // Enviar resultado del escaneo WiFi
   void sendScanResult(int networkCount);
@@ -66,6 +70,7 @@ private:
   AsyncWebServer server;
   ModeManager* modeManager;
   TurnstileMode* turnstileMode;
+  TimeManager* timeManager;
   AsyncWebSocket ws;
   
   WiFiManager* wifiManager;
@@ -79,6 +84,7 @@ private:
   
   // Manejadores de comandos
   void handleGetConfig(AsyncWebSocketClient* client);
+  void handleGetSystemMetrics(AsyncWebSocketClient* client);
   void handleAddWiFi(AsyncWebSocketClient* client, const String& ssid, const String& password);
   void handleDeleteWiFi(AsyncWebSocketClient* client, const String& ssid);
   

@@ -225,8 +225,12 @@ bool ConfigManager::setAPIConfig(const String& baseURL, bool enabled, unsigned l
     return false;
   }
   
-  // Actualizar configuración de API
-  JsonObject api = doc.createNestedObject("api");
+  // Actualizar configuración de API (fusionar, no sobrescribir)
+  if (!doc.containsKey("api")) {
+    doc.createNestedObject("api");
+  }
+  
+  JsonObject api = doc["api"];
   api["base_url"] = baseURL;
   api["enabled"] = enabled;
   api["heartbeat_interval"] = heartbeatInterval / 1000; // Guardar en segundos

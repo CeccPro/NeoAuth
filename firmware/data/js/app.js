@@ -80,7 +80,11 @@ function handleMessage(data) {
         if (window.updateModeInfo) window.updateModeInfo(data);
     }
     else if(data.type === 'system_metrics') {
-        AppState.systemMetrics = data.metrics;
+        AppState.systemMetrics = {
+            ram: data.ram || { used: 0, total: 0, free: 0 },
+            storage: data.storage || { used: 0, total: 0, free: 0 },
+            cpu: data.cpu || 0
+        };
         if (window.updateDashboard) window.updateDashboard();
     }
     else if(data.type === 'rtc_time') {
@@ -198,8 +202,14 @@ function switchTab(tabName) {
     }
     
     // Refrescar datos del tab activo
-    if (tabName === 'dashboard' && window.updateDashboard) {
-        window.updateDashboard();
+    if (tabName === 'dashboard') {
+        // Inicializar gráficas si no están inicializadas
+        if (window.initCharts && typeof ramChart === 'undefined') {
+            window.initCharts();
+        }
+        if (window.updateDashboard) {
+            window.updateDashboard();
+        }
     } else if (tabName === 'networks' && window.loadNetworks) {
         window.loadNetworks();
     } else if (tabName === 'mode' && window.loadModePanel) {

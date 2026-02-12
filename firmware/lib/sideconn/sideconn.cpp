@@ -6,80 +6,68 @@
 
 #include "sideconn.h"
 
-SideConn::SideConn(uint8_t clkPin, uint8_t dinPin, uint8_t doutPin, MessageSize msgSize)
-  : clkPin(clkPin), dinPin(dinPin), doutPin(doutPin), 
-    messageSize(msgSize), clockDelayUs(10) {
+SideConn::SideConn(uint8_t sdaPin, uint8_t sclPin, uint8_t slaveAddress, MessageSize msgSize)
+  : sdaPin(sdaPin), sclPin(sclPin), slaveAddress(slaveAddress),
+    messageSize(msgSize), i2cFrequency(100000) {
 }
 
 void SideConn::begin() {
-  pinMode(clkPin, OUTPUT);
-  pinMode(dinPin, INPUT);
-  pinMode(doutPin, OUTPUT);
+  Wire.begin(sdaPin, sclPin);
+  Wire.setClock(i2cFrequency);
   
-  digitalWrite(clkPin, LOW);
-  digitalWrite(doutPin, LOW);
+  Serial.println("[SideConn] I2C Initialized");
+  Serial.println("  SDA: " + String(sdaPin));
+  Serial.println("  SCL: " + String(sclPin));
+  Serial.println("  Slave Address: 0x" + String(slaveAddress, HEX));
+  Serial.println("  Frequency: " + String(i2cFrequency) + " Hz");
   
-  Serial.println("[SideConn] Initialized - CLK:" + String(clkPin) + 
-                 " DIN:" + String(dinPin) + " DOUT:" + String(doutPin));
+  // Verificar conectividad
+  delay(100); // Dar tiempo al slave para inicializarse
+  if (isConnected()) {
+    Serial.println("[SideConn] Slave device detected");
+  } else {
+    Serial.println("[SideConn] WARNING: Slave device not responding");
+  }
 }
 
-void SideConn::setClockSpeed(unsigned long delayUs) {
-  clockDelayUs = delayUs;
+void SideConn::setClockSpeed(uint32_t frequency) {
+  i2cFrequency = frequency;
+  Wire.setClock(i2cFrequency);
+  Serial.println("[SideConn] I2C frequency set to " + String(frequency) + " Hz");
 }
 
 void SideConn::setMessageSize(MessageSize size) {
   messageSize = size;
 }
 
-void SideConn::clockPulse() {
-  delayMicroseconds(clockDelayUs);
-  digitalWrite(clkPin, HIGH);
-  delayMicroseconds(clockDelayUs);
-  digitalWrite(clkPin, LOW);
-}
-
-void SideConn::sendByte(uint8_t byte) {
-  // Enviar bit por bit, MSB primero
-  for (int i = 7; i >= 0; i--) {
-    // Escribir el bit en DOUT
-    digitalWrite(doutPin, (byte >> i) & 0x01);
-    
-    // Generar pulso de reloj para que el slave lo lea
-    clockPulse();
-  }
-}
-
-uint8_t SideConn::receiveByte() {
-  uint8_t byte = 0;
-  
-  // Leer bit por bit, MSB primero
-  for (int i = 7; i >= 0; i--) {
-    // Generar pulso de reloj
-    clockPulse();
-    
-    // Leer el bit de DIN
-    if (digitalRead(dinPin)) {
-      byte |= (1 << i);
-    }
-  }
-  
-  return byte;
+bool SideConn::isConnected() {
+  Wire.beginTransmission(slaveAddress);
+  uint8_t error = Wire.endTransmission();
+  return (error == 0);
 }
 
 bool SideConn::sendMessage(const uint8_t* data) {
-  if (!data) return false;
-  
-  // Enviar todos los bytes del mensaje
-  for (int i = 0; i < messageSize; i++) {
-    sendByte(data[i]);
+  if (!data) {
+    Serial.println("[SideConn] ERROR: Null data pointer");
+    return false;
   }
   
-  return true;
+  Wire.beginTransmission(slaveAddress);
+  Wire.write(data, messageSize);
+  uint8_t error = Wire.endTransmission();
+  
+  if (error == 0) {
+    return true;
+  } else {
+    Serial.println("[SideConn] ERROR: Failed to send message, I2C error code: " + String(error));
+    return false;
+  }
 }
 
 bool SideConn::sendMessage(const std::vector<uint8_t>& data) {
   if (data.size() != messageSize) {
-    Serial.println("[SideConn] ERROR: Message size mismatch");
+    Serial.println("[SideConn] ERROR: Message size mismatch (expected " + 
+                   String(messageSize) + ", got " + String(data.size()) + ")");
     return false;
   }
   
@@ -87,19 +75,37 @@ bool SideConn::sendMessage(const std::vector<uint8_t>& data) {
 }
 
 bool SideConn::receiveMessage(uint8_t* buffer, unsigned long timeoutMs) {
-  if (!buffer) return false;
+  if (!buffer) {
+    Serial.println("[SideConn] ERROR: Null buffer pointer");
+    return false;
+  }
   
   unsigned long startTime = millis();
   
-  // Recibir todos los bytes del mensaje
-  for (int i = 0; i < messageSize; i++) {
+  // Solicitar datos del slave
+  uint8_t bytesReceived = Wire.requestFrom(slaveAddress, (uint8_t)messageSize);
+  
+  if (bytesReceived == 0) {
+    Serial.println("[SideConn] ERROR: No data received from slave");
+    return false;
+  }
+  
+  // Leer datos disponibles
+  size_t i = 0;
+  while (Wire.available() && i < messageSize) {
+    buffer[i++] = Wire.read();
+    
     // Verificar timeout
     if (millis() - startTime > timeoutMs) {
       Serial.println("[SideConn] Receive timeout");
       return false;
     }
-    
-    buffer[i] = receiveByte();
+  }
+  
+  if (i != messageSize) {
+    Serial.println("[SideConn] WARNING: Incomplete message received (" + 
+                   String(i) + "/" + String(messageSize) + " bytes)");
+    return false;
   }
   
   return true;
@@ -115,8 +121,8 @@ bool SideConn::sendAndReceive(const uint8_t* sendData, uint8_t* receiveBuffer, u
     return false;
   }
   
-  // Pequeña pausa para que el slave procese
-  delayMicroseconds(100);
+  // Pequeña pausa para que el slave procese el comando
+  delay(10);
   
   return receiveMessage(receiveBuffer, timeoutMs);
 }

@@ -11,6 +11,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (necesario para Railway y otros servicios detrás de proxy)
+app.set('trust proxy', 1);
+
 // Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -135,7 +138,7 @@ app.get('/api/v1/time', (req, res) => {
     timestamp: now.toISOString(),
     time: mexicoTime.toTimeString().split(' ')[0], // "HH:MM:SS"
     date: mexicoTime.toISOString().split('T')[0],   // "YYYY-MM-DD"
-    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'lowercase' }), // "monday"
+    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(), // "monday"
     timezone: 'America/Mexico_City',
     unix: Math.floor(now.getTime() / 1000)
   });
@@ -172,7 +175,7 @@ app.post('/api/v1/heartbeat', authenticateSensor, async (req, res) => {
     timestamp: now.toISOString(),
     time: mexicoTime.toTimeString().split(' ')[0], // "HH:MM:SS"
     date: mexicoTime.toISOString().split('T')[0],   // "YYYY-MM-DD"
-    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'lowercase' }), // "monday"
+    day: mexicoTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(), // "monday"
     timezone: 'America/Mexico_City',
     unix: Math.floor(now.getTime() / 1000)
   });

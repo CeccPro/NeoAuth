@@ -4,15 +4,16 @@
  * Author: CeccPro
  * 
  * Description:
- *   SideConn - Simple bidirectional communication protocol
- *   3-wire protocol: CLK, DIN (data in from slave), DOUT (data out to slave)
- *   ESP32 acts as master, generates clock
+ *   SideConn - Physical connector interface for slave devices
+ *   Uses I2C protocol for communication
+ *   ESP32 acts as I2C master
  */
 
 #ifndef SIDECONN_H
 #define SIDECONN_H
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <vector>
 
 // Tamaños de mensaje soportados
@@ -23,7 +24,8 @@ enum MessageSize {
 
 class SideConn {
 public:
-  SideConn(uint8_t clkPin, uint8_t dinPin, uint8_t doutPin, MessageSize msgSize = MSG_4_BYTES);
+  // Constructor: sdaPin, sclPin, slaveAddress, messageSize
+  SideConn(uint8_t sdaPin, uint8_t sclPin, uint8_t slaveAddress, MessageSize msgSize = MSG_4_BYTES);
   
   // Inicialización
   void begin();
@@ -40,23 +42,19 @@ public:
   bool sendAndReceive(const uint8_t* sendData, uint8_t* receiveBuffer, unsigned long timeoutMs = 1000);
   
   // Configuración
-  void setClockSpeed(unsigned long delayUs); // Delay en microsegundos entre pulsos de reloj
+  void setClockSpeed(uint32_t frequency); // Frecuencia I2C en Hz (100000, 400000, etc)
   void setMessageSize(MessageSize size);
   MessageSize getMessageSize() const { return messageSize; }
+  
+  // Verificar conectividad
+  bool isConnected();
 
 private:
-  uint8_t clkPin;
-  uint8_t dinPin;
-  uint8_t doutPin;
+  uint8_t sdaPin;
+  uint8_t sclPin;
+  uint8_t slaveAddress;
   MessageSize messageSize;
-  unsigned long clockDelayUs;
-  
-  // Enviar/recibir un byte
-  void sendByte(uint8_t byte);
-  uint8_t receiveByte();
-  
-  // Generar pulso de reloj
-  void clockPulse();
+  uint32_t i2cFrequency;
 };
 
 #endif // SIDECONN_H

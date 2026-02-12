@@ -18,6 +18,9 @@
 #include <mode_manager.h>
 #include <sideconn.h>
 #include <turnstile_mode.h>
+#include <api_client.h>
+#include <standalone_mode.h>
+#include <time_manager.h>
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -27,8 +30,11 @@ ConfigManager configManager(CONFIG_FILE_PATH);
 RFIDManager rfidManager(SS_PIN, RST_PIN);
 WebServerManager webServer(WEB_SERVER_PORT);
 ModeManager modeManager;
-SideConn sideconn(SIDECONN_CLK_PIN, SIDECONN_DIN_PIN, SIDECONN_DOUT_PIN, MSG_4_BYTES);
-TurnstileMode turnstileMode(&sideconn);
+APIClient apiClient(RFID_SENSOR_ID, AUTH_SECRET);
+TimeManager timeManager("");
+SideConn sideconn(SIDECONN_SDA_PIN, SIDECONN_SCL_PIN, SIDECONN_SLAVE_ADDR, MSG_4_BYTES);
+TurnstileMode turnstileMode(&sideconn, &apiClient);
+StandaloneMode standaloneMode(&apiClient);
 
 // ============================================================================
 // TASK MANAGEMENT (para evitar bloqueos del watchdog)
@@ -40,6 +46,8 @@ enum TaskType {
   TASK_RFID_CHECK_CARD,
   TASK_WEBSERVER_CLEANUP,
   TASK_TURNSTILE_PERIODIC,
+  TASK_API_HEARTBEAT,
+  TASK_TIME_SYNC,
   TASK_COUNT
 };
 
@@ -51,12 +59,14 @@ struct Task {
 };
 
 Task tasks[TASK_COUNT] = {
-  {TASK_WIFI_PERIODIC,        0, 30000, true},  // Cada 30 segundos
-  {TASK_WIFI_CHECK_CONNECTION, 0, 5000,  true},  // Cada 5 segundos
-  {TASK_WIFI_CHECK_SCAN,       0, 100,   true},  // Cada 100ms
-  {TASK_RFID_CHECK_CARD,       0, 50,    true},  // Cada 50ms
-  {TASK_WEBSERVER_CLEANUP,     0, 2000,  true},  // Cada 2 segundos
-  {TASK_TURNSTILE_PERIODIC,    0, 100,   false}  // Cada 100ms (solo en modo torniquete)
+  {TASK_WIFI_PERIODIC,        0, 30000,  true},  // Cada 30 segundos
+  {TASK_WIFI_CHECK_CONNECTION, 0, 5000,   true},  // Cada 5 segundos
+  {TASK_WIFI_CHECK_SCAN,       0, 100,    true},  // Cada 100ms
+  {TASK_RFID_CHECK_CARD,       0, 50,     true},  // Cada 50ms
+  {TASK_WEBSERVER_CLEANUP,     0, 2000,   true},  // Cada 2 segundos
+  {TASK_TURNSTILE_PERIODIC,    0, 100,    false}, // Cada 100ms (solo en modo torniquete)
+  {TASK_API_HEARTBEAT,         0, 300000, false}, // Cada 5 minutos (se activa si API habilitada)
+  {TASK_TIME_SYNC,             0, 60000,  false}  // Cada 1 minuto (se activa si API habilitada)
 };
 
 // ============================================================================
@@ -102,9 +112,13 @@ void handleRFIDCheckCard() {
     // Notificar detección al WebSocket
     webServer.notifyCardDetected(uid);
     
-    // Si estamos en modo torniquete, procesar la tarjeta
-    if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
+    // Procesar según el modo actual
+    SensorMode currentMode = modeManager.getCurrentMode();
+    
+    if (currentMode == MODE_TURNSTILE) {
       turnstileMode.handleCardDetected(uid);
+    } else if (currentMode == MODE_STANDALONE) {
+      standaloneMode.handleCardDetected(uid);
     }
   }
 }
@@ -115,6 +129,41 @@ void handleWebServerCleanup() {
 
 void handleTurnstilePeriodicTask() {
   turnstileMode.periodicTask();
+}
+
+void handleAPIHeartbeatTask() {
+  if (apiClient.isEnabled() && wifiManager.isConnected()) {
+    Serial.println("[Heartbeat] Sending heartbeat to API...");
+    
+    bool success = false;
+    int maxRetries = 3;
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      if (apiClient.sendHeartbeat()) {
+        Serial.println("[Heartbeat] ✓ Heartbeat successful");
+        success = true;
+        break;
+      } else {
+        Serial.printf("[Heartbeat] ✗ Heartbeat failed (attempt %d/%d)\n", attempt, maxRetries);
+        if (attempt < maxRetries) {
+          delay(1000); // Esperar 1 segundo antes del siguiente intento
+        }
+      }
+    }
+    
+    if (!success) {
+      Serial.println("[Heartbeat] ✗ All heartbeat attempts failed");
+    }
+  }
+}
+
+void handleTimeSyncTask() {
+  if (apiClient.isEnabled() && wifiManager.isConnected()) {
+    if (timeManager.syncTime()) {
+      // Enviar hora actualizada a los clientes web
+      webServer.sendTimeInfo();
+    }
+  }
 }
 
 // ============================================================================
@@ -154,6 +203,12 @@ void runTasks() {
           break;
         case TASK_TURNSTILE_PERIODIC:
           handleTurnstilePeriodicTask();
+          break;
+        case TASK_API_HEARTBEAT:
+          handleAPIHeartbeatTask();
+          break;
+        case TASK_TIME_SYNC:
+          handleTimeSyncTask();
           break;
         default:
           break;
@@ -201,6 +256,28 @@ void setup() {
     }
   }
   
+  // Configurar API Client
+  String apiBaseURL = configManager.getAPIBaseURL();
+  bool apiEnabled = configManager.getAPIEnabled();
+  unsigned long heartbeatInterval = configManager.getAPIHeartbeatInterval();
+  
+  if (!apiBaseURL.isEmpty()) {
+    apiClient.setBaseURL(apiBaseURL);
+    apiClient.setEnabled(apiEnabled);
+    timeManager.setBaseURL(apiBaseURL);
+    
+    Serial.println("[Setup] API Configuration:");
+    Serial.println("  Base URL: " + apiBaseURL);
+    Serial.println("  Enabled: " + String(apiEnabled ? "Yes" : "No"));
+    Serial.println("  Heartbeat Interval: " + String(heartbeatInterval / 1000) + "s");
+    
+    // Configurar intervalo de heartbeat
+    tasks[TASK_API_HEARTBEAT].interval = heartbeatInterval;
+    
+    // NOTA: Las tareas de API se habilitarán automáticamente cuando se conecte WiFi
+    // (ver callback wifiManager.setOnConnectedCallback)
+  }
+  
   // Inicializar Mode Manager (carga de /mode.txt si no hay en config.json)
   modeManager.begin();
   
@@ -218,8 +295,9 @@ void setup() {
   webServer.begin(&wifiManager, &configManager, RFID_SENSOR_ID, FIRMWARE_VERSION);
   webServer.setModeManager(&modeManager);
   webServer.setTurnstileMode(&turnstileMode);
+  webServer.setTimeManager(&timeManager);
   
-  // Si el modo es torniquete, inicializar SideConn y Turnstile
+  // Inicializar modo según configuración
   if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
     Serial.println("Modo torniquete activo - inicializando SideConn");
     sideconn.begin();
@@ -232,12 +310,34 @@ void setup() {
     });
     
     tasks[TASK_TURNSTILE_PERIODIC].enabled = true;
+  } else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
+    Serial.println("Modo standalone activo - solo identificación");
+    standaloneMode.begin();
   }
   
   // Configurar callback para notificar conexiones WiFi exitosas
   wifiManager.setOnConnectedCallback([](const String& ssid, const String& ip) {
     Serial.println("Callback: WiFi conectado a " + ssid + " con IP " + ip);
     webServer.notifyWiFiConnected(ssid, ip);
+    
+    // Habilitar tareas de API cuando se conecta WiFi (si la API está habilitada)
+    if (apiClient.isEnabled()) {
+      Serial.println("[Setup] Enabling API tasks (heartbeat & time sync)");
+      tasks[TASK_API_HEARTBEAT].enabled = true;
+      tasks[TASK_TIME_SYNC].enabled = true;
+      
+      // Hacer un heartbeat inicial inmediatamente
+      Serial.println("[Setup] Sending initial heartbeat...");
+      if (apiClient.sendHeartbeat()) {
+        Serial.println("[Setup] ✓ Initial heartbeat successful");
+      } else {
+        Serial.println("[Setup] ✗ Initial heartbeat failed");
+      }
+      
+      // Sincronizar tiempo inmediatamente
+      Serial.println("[Setup] Syncing time...");
+      timeManager.syncTime();
+    }
   });
   
   // Intentar conectar a redes WiFi conocidas
@@ -249,6 +349,25 @@ void setup() {
         wifiManager.getConnectedSSID(),
         wifiManager.getLocalIP().toString()
       );
+      
+      // Habilitar tareas de API cuando se conecta WiFi (si la API está habilitada)
+      if (apiClient.isEnabled()) {
+        Serial.println("[Setup] Enabling API tasks (heartbeat & time sync)");
+        tasks[TASK_API_HEARTBEAT].enabled = true;
+        tasks[TASK_TIME_SYNC].enabled = true;
+        
+        // Hacer un heartbeat inicial inmediatamente
+        Serial.println("[Setup] Sending initial heartbeat...");
+        if (apiClient.sendHeartbeat()) {
+          Serial.println("[Setup] ✓ Initial heartbeat successful");
+        } else {
+          Serial.println("[Setup] ✗ Initial heartbeat failed");
+        }
+        
+        // Sincronizar tiempo inmediatamente
+        Serial.println("[Setup] Syncing time...");
+        timeManager.syncTime();
+      }
     }
   }
   

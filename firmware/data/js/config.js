@@ -43,14 +43,26 @@ window.saveGeneralConfig = function() {
         return;
     }
     
-    // Enviar comando para cambiar modo si es diferente
-    if (mode !== AppState.config.current_mode) {
-        if (confirm('¿Cambiar el modo de operación? El dispositivo se reiniciará.')) {
+    // Verificar si el modo cambió
+    const modeChanged = mode !== AppState.config.current_mode;
+    
+    if (modeChanged) {
+        if (confirm('¿Cambiar el modo de operación? El dispositivo se reiniciará automáticamente.')) {
+            // Primero cambiar el modo
             sendCommand('setMode', { mode: mode });
+            
+            // Mostrar mensaje de reinicio
+            showToast('Sistema', 'Cambiando modo y reiniciando dispositivo...', 'info');
+            
+            // Reiniciar automáticamente después de 2 segundos
+            setTimeout(() => {
+                sendCommand('reboot');
+            }, 2000);
         }
+        return; // No continuar con la actualización de heartbeat si se cambia el modo
     }
     
-    // Enviar comando para actualizar heartbeat
+    // Si solo se actualiza el heartbeat (sin cambio de modo)
     sendCommand('updateConfig', {
         api: {
             heartbeat_interval: heartbeatMs

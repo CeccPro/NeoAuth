@@ -12,11 +12,12 @@
 #include "../config_manager/config_manager.h"
 #include "../mode_manager/mode_manager.h"
 #include "../turnstile_mode/turnstile_mode.h"
+#include "../time_manager/time_manager.h"
 #include "../power/power.h"
 
 WebServerManager::WebServerManager(uint16_t port)
   : server(port), ws("/ws"), wifiManager(nullptr), configManager(nullptr),
-    modeManager(nullptr), turnstileMode(nullptr),
+    modeManager(nullptr), turnstileMode(nullptr), timeManager(nullptr),
     sensorId(nullptr), firmwareVersion(nullptr) {
 }
 
@@ -56,6 +57,10 @@ void WebServerManager::setTurnstileMode(TurnstileMode* turnstileModePtr) {
   this->turnstileMode = turnstileModePtr;
 }
 
+void WebServerManager::setTimeManager(TimeManager* timeMgr) {
+  this->timeManager = timeMgr;
+}
+
 void WebServerManager::notifyClients(const String& message) {
   ws.textAll(message);
 }
@@ -75,6 +80,63 @@ void WebServerManager::sendSystemInfo(AsyncWebSocketClient* client) {
   // Agregar modo actual si modeManager está disponible
   if (modeManager) {
     doc["current_mode"] = modeManager->getCurrentModeString();
+  }
+  
+  String response;
+  serializeJson(doc, response);
+  
+  if (client) {
+    client->text(response);
+  } else {
+    notifyClients(response);
+  }
+}
+
+void WebServerManager::sendSystemMetrics(AsyncWebSocketClient* client) {
+  DynamicJsonDocument doc(512);
+  doc["type"] = "system_metrics";
+  
+  // Métricas de RAM
+  JsonObject ram = doc.createNestedObject("ram");
+  ram["used"] = ESP.getHeapSize() - ESP.getFreeHeap();
+  ram["total"] = ESP.getHeapSize();
+  ram["free"] = ESP.getFreeHeap();
+  
+  // Métricas de almacenamiento (SPIFFS)
+  JsonObject storage = doc.createNestedObject("storage");
+  storage["used"] = SPIFFS.usedBytes();
+  storage["total"] = SPIFFS.totalBytes();
+  storage["free"] = SPIFFS.totalBytes() - SPIFFS.usedBytes();
+  
+  // CPU usage (placeholder)
+  doc["cpu"] = 0;
+  
+  String response;
+  serializeJson(doc, response);
+  
+  if (client) {
+    client->text(response);
+  } else {
+    notifyClients(response);
+  }
+}
+
+void WebServerManager::sendTimeInfo(AsyncWebSocketClient* client) {
+  DynamicJsonDocument doc(256);
+  doc["type"] = "rtc_time";
+  
+  if (timeManager && timeManager->isTimeSynced()) {
+    TimeInfo timeInfo = timeManager->getCurrentTime();
+    doc["time"] = timeInfo.time;
+    doc["date"] = timeInfo.date;
+    doc["day"] = timeInfo.day;
+    doc["synced"] = timeInfo.valid;
+  } else {
+    // Usar tiempo local del ESP32 si no hay sync
+    doc["time"] = "00:00:00";
+    doc["date"] = "1970-01-01";
+    doc["day"] = "unknown";
+    doc["synced"] = false;
   }
   
   String response;
@@ -183,8 +245,6 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           msg += (char)data[i];
         }
         
-        Serial.println("Comando recibido: " + msg);
-        
         // Parsear comando JSON
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, msg);
@@ -192,8 +252,16 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
         if (!error) {
           String command = doc["command"].as<String>();
           
+          // No loggear getSystemMetrics para evitar spam
+          if (command != "getSystemMetrics") {
+            Serial.println("Comando recibido: " + msg);
+          }
+          
           if (command == "getConfig") {
             handleGetConfig(client);
+          }
+          else if (command == "getSystemMetrics") {
+            handleGetSystemMetrics(client);
           }
           else if (command == "addWiFi") {
             String ssid = doc["ssid"].as<String>();
@@ -261,6 +329,30 @@ void WebServerManager::handleGetConfig(AsyncWebSocketClient* client) {
     net["ssid"] = wn.ssid;
     net["has_password"] = (wn.password.length() > 0);
   }
+  
+  String json;
+  serializeJson(response, json);
+  client->text(json);
+}
+
+void WebServerManager::handleGetSystemMetrics(AsyncWebSocketClient* client) {
+  DynamicJsonDocument response(512);
+  response["type"] = "system_metrics";
+  
+  // Métricas de RAM
+  JsonObject ram = response.createNestedObject("ram");
+  ram["used"] = ESP.getHeapSize() - ESP.getFreeHeap();
+  ram["total"] = ESP.getHeapSize();
+  ram["free"] = ESP.getFreeHeap();
+  
+  // Métricas de almacenamiento (SPIFFS)
+  JsonObject storage = response.createNestedObject("storage");
+  storage["used"] = SPIFFS.usedBytes();
+  storage["total"] = SPIFFS.totalBytes();
+  storage["free"] = SPIFFS.totalBytes() - SPIFFS.usedBytes();
+  
+  // CPU usage (estimado basado en loop time)
+  response["cpu"] = 0; // Placeholder, difícil de calcular sin OS
   
   String json;
   serializeJson(response, json);

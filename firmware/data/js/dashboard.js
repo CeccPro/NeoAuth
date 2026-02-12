@@ -39,13 +39,17 @@ function updateMetricsCards() {
     
     // WiFi Status
     const wifiStatusCard = document.getElementById('wifiStatusCard');
-    if (wifiStatusCard && AppState.config) {
+    const wifiStatusText = document.getElementById('wifiStatusText');
+    
+    if (wifiStatusCard && wifiStatusText && AppState.config) {
         if (AppState.config.wifi_connected) {
             wifiStatusCard.innerHTML = '<i class="bi bi-wifi"></i>';
             wifiStatusCard.className = 'stat-icon success';
+            wifiStatusText.textContent = 'Conectado';
         } else {
             wifiStatusCard.innerHTML = '<i class="bi bi-wifi-off"></i>';
             wifiStatusCard.className = 'stat-icon danger';
+            wifiStatusText.textContent = 'Desconectado';
         }
     }
 }
@@ -210,5 +214,5 @@ function initCharts() {
 
 // Inicializar charts cuando el dashboard se carga
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(initCharts, 500);
+    initCharts();
 });
