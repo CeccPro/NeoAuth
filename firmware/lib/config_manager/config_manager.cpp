@@ -42,9 +42,8 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
     return false;
   }
   
-  // Leer archivo JSON
-  DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, file);
+  // Leer archivo JSON y guardar en cache
+  DeserializationError error = deserializeJson(*configCache, file);
   file.close();
   
   if (error) {
@@ -53,13 +52,13 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
   }
   
   // Cargar modo
-  if (doc.containsKey("mode")) {
-    mode = doc["mode"].as<String>();
+  if (configCache->containsKey("mode")) {
+    mode = (*configCache)["mode"].as<String>();
   }
   
   // Cargar redes WiFi
-  if (doc.containsKey("wifi_networks")) {
-    JsonArray wifiNetworks = doc["wifi_networks"].as<JsonArray>();
+  if (configCache->containsKey("wifi_networks")) {
+    JsonArray wifiNetworks = (*configCache)["wifi_networks"].as<JsonArray>();
     for (JsonObject net : wifiNetworks) {
       WiFiNetwork wn;
       wn.ssid = net["ssid"].as<String>();
@@ -71,6 +70,16 @@ bool ConfigManager::load(std::vector<WiFiNetwork>& networks, String& mode) {
   Serial.println("[ConfigManager] Config loaded successfully");
   Serial.println("[ConfigManager] Mode: " + mode);
   Serial.println("[ConfigManager] Networks: " + String(networks.size()));
+  
+  // Debug API config
+  if (configCache->containsKey("api")) {
+    String apiUrl = (*configCache)["api"]["base_url"] | "";
+    bool apiEnabled = (*configCache)["api"]["enabled"] | false;
+    Serial.println("[ConfigManager] API Base URL: " + apiUrl);
+    Serial.println("[ConfigManager] API Enabled: " + String(apiEnabled ? "YES" : "NO"));
+  } else {
+    Serial.println("[ConfigManager] No API configuration found in config.json");
+  }
   
   return true;
 }
@@ -171,55 +180,43 @@ bool ConfigManager::setMode(const String& mode) {
 }
 
 String ConfigManager::getAPIBaseURL() {
-  File configFile = SPIFFS.open(configFilePath, "r");
-  if (!configFile) return "";
+  if (!configCache || configCache->isNull()) {
+    Serial.println("[ConfigManager] getAPIBaseURL: Config cache is empty");
+    return "";
+  }
   
-  DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, configFile);
-  configFile.close();
+  if (!configCache->containsKey("api")) {
+    Serial.println("[ConfigManager] getAPIBaseURL: No 'api' key in cache");
+    return "";
+  }
   
-  if (error || !doc.containsKey("api")) return "";
-  
-  return doc["api"]["base_url"] | "";
+  String baseUrl = (*configCache)["api"]["base_url"] | "";
+  Serial.println("[ConfigManager] getAPIBaseURL: " + baseUrl);
+  return baseUrl;
 }
 
 bool ConfigManager::getAPIEnabled() {
-  File configFile = SPIFFS.open(configFilePath, "r");
-  if (!configFile) {
-    Serial.println("[ConfigManager] getAPIEnabled: Could not open config file");
+  if (!configCache || configCache->isNull()) {
+    Serial.println("[ConfigManager] getAPIEnabled: Config cache is empty");
     return false;
   }
   
-  DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, configFile);
-  configFile.close();
-  
-  if (error) {
-    Serial.println("[ConfigManager] getAPIEnabled: Parse error");
+  if (!configCache->containsKey("api")) {
+    Serial.println("[ConfigManager] getAPIEnabled: No 'api' key in cache");
     return false;
   }
   
-  if (!doc.containsKey("api")) {
-    Serial.println("[ConfigManager] getAPIEnabled: No 'api' key in config");
-    return false;
-  }
-  
-  bool enabled = doc["api"]["enabled"] | false;
+  bool enabled = (*configCache)["api"]["enabled"] | false;
   Serial.println("[ConfigManager] getAPIEnabled: " + String(enabled ? "true" : "false"));
   return enabled;
 }
 
 unsigned long ConfigManager::getAPIHeartbeatInterval() {
-  File configFile = SPIFFS.open(configFilePath, "r");
-  if (!configFile) return 300000; // Default: 5 minutos
+  if (!configCache || configCache->isNull() || !configCache->containsKey("api")) {
+    return 300000; // Default: 5 minutos
+  }
   
-  DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, configFile);
-  configFile.close();
-  
-  if (error || !doc.containsKey("api")) return 300000;
-  
-  return (doc["api"]["heartbeat_interval"] | 300) * 1000; // Convertir segundos a ms
+  return ((*configCache)["api"]["heartbeat_interval"] | 300) * 1000; // Convertir segundos a ms
 }
 
 bool ConfigManager::setAPIConfig(const String& baseURL, bool enabled, unsigned long heartbeatInterval) {
