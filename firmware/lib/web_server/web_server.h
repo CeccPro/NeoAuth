@@ -106,11 +106,13 @@ private:
   void handleGetAuthorizedCards(AsyncWebSocketClient* client);
   void handleUnlockTurnstile(AsyncWebSocketClient* client, uint16_t duration = 0);
   void handleLockTurnstile(AsyncWebSocketClient* client);
+  void handleSetBlockMode(AsyncWebSocketClient* client, bool enabled);
   void handleScanNetworks(AsyncWebSocketClient* client);
   void handleConnectWiFi(AsyncWebSocketClient* client);
   
   // Manejadores del sistema
   void handleReboot(AsyncWebSocketClient* client);
+  void handleResetConfig(AsyncWebSocketClient* client);
   
   // Manejadores de admin mode
   void handleRegisterCard(AsyncWebSocketClient* client, const String& uid, const String& user_name, 

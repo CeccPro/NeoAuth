@@ -61,6 +61,10 @@ public:
   void setAutoLockDelay(unsigned long delayMs);
   unsigned long getAutoLockDelay() const { return autoLockDelay; }
   
+  // Modo de bloqueo total
+  void setBlockMode(bool enabled);
+  bool isBlockModeEnabled() const { return blockModeEnabled; }
+  
   // Callback para notificar eventos
   typedef std::function<void(const String& uid, bool granted)> OnAccessEventCallback;
   void setOnAccessEventCallback(OnAccessEventCallback callback);
@@ -76,6 +80,7 @@ private:
   unsigned long autoLockDelay;  // Tiempo antes de auto-bloquear (ms)
   unsigned long unlockTime;     // Timestamp de último desbloqueo
   bool isUnlocked;
+  bool blockModeEnabled;        // Modo de bloqueo total (rechaza todas las tarjetas)
   
   OnAccessEventCallback onAccessEventCallback;
   

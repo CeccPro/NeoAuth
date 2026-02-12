@@ -7,7 +7,7 @@
 #include "turnstile_mode.h"
 
 TurnstileMode::TurnstileMode(SideConn* sideconn, APIClient* apiClient)
-  : sideconn(sideconn), apiClient(apiClient), autoLockDelay(5000), unlockTime(0), isUnlocked(false), onAccessEventCallback(nullptr) {
+  : sideconn(sideconn), apiClient(apiClient), autoLockDelay(5000), unlockTime(0), isUnlocked(false), blockModeEnabled(false), onAccessEventCallback(nullptr) {
 }
 
 void TurnstileMode::begin() {
@@ -108,6 +108,13 @@ bool TurnstileMode::isCardAuthorized(const String& uid) {
 void TurnstileMode::handleCardDetected(const String& uid) {
   Serial.println("[TurnstileMode] Card detected: " + uid);
   
+  // Verificar si el modo de bloqueo total está activo
+  if (blockModeEnabled) {
+    Serial.println("[TurnstileMode] Block mode ACTIVE - denying all access");
+    onAccessDenied(uid);
+    return;
+  }
+  
   // Debug: verificar estado de API
   Serial.println("[TurnstileMode] DEBUG - apiClient pointer: " + String(apiClient != nullptr ? "OK" : "NULL"));
   if (apiClient) {
@@ -203,4 +210,14 @@ void TurnstileMode::clearAuthorizedCards() {
 
 std::vector<String> TurnstileMode::getAuthorizedCards() const {
   return std::vector<String>(authorizedCards.begin(), authorizedCards.end());
+}
+
+void TurnstileMode::setBlockMode(bool enabled) {
+  blockModeEnabled = enabled;
+  Serial.println("[TurnstileMode] Block mode " + String(enabled ? "ENABLED" : "DISABLED"));
+  
+  if (enabled) {
+    // Cuando se activa el modo de bloqueo, bloquear el torniquete
+    lockTurnstile();
+  }
 }

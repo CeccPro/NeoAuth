@@ -329,8 +329,15 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           else if (command == "lockTurnstile") {
             handleLockTurnstile(client);
           }
+          else if (command == "setBlockMode") {
+            bool enabled = doc["enabled"] | false;
+            handleSetBlockMode(client, enabled);
+          }
           else if (command == "reboot") {
             handleReboot(client);
+          }
+          else if (command == "resetConfig") {
+            handleResetConfig(client);
           }
           else if (command == "registerCard") {
             JsonVariant uidVar = doc["uid"];
@@ -704,6 +711,31 @@ void WebServerManager::handleLockTurnstile(AsyncWebSocketClient* client) {
   }
 }
 
+void WebServerManager::handleSetBlockMode(AsyncWebSocketClient* client, bool enabled) {
+  if (!turnstileMode) {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Modo torniquete no activo";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    return;
+  }
+  
+  turnstileMode->setBlockMode(enabled);
+  
+  DynamicJsonDocument responseDoc(256);
+  responseDoc["type"] = "success";
+  responseDoc["message"] = enabled ? "Modo de bloqueo activado" : "Modo de bloqueo desactivado";
+  responseDoc["block_mode_enabled"] = enabled;
+  String response;
+  serializeJson(responseDoc, response);
+  client->text(response);
+  
+  // Notificar a todos los clientes sobre el cambio de estado
+  notifyClients(response);
+}
+
 // ============================================================================
 // SISTEMA HANDLERS
 // ============================================================================
@@ -723,6 +755,40 @@ void WebServerManager::handleReboot(AsyncWebSocketClient* client) {
   
   // Reiniciar el ESP32 usando power.h
   restart(0);
+}
+
+void WebServerManager::handleResetConfig(AsyncWebSocketClient* client) {
+  Serial.println("[WebServer] Resetting configuration to factory defaults...");
+  
+  // Resetear configuración a valores por defecto
+  if (configManager && configManager->resetToDefaults()) {
+    DynamicJsonDocument responseDoc(256);
+    responseDoc["type"] = "success";
+    responseDoc["message"] = "Configuración restablecida. Reiniciando en 3 segundos...";
+    String response;
+    serializeJson(responseDoc, response);
+    client->text(response);
+    
+    // Notificar a todos los clientes
+    notifyClients(response);
+    
+    Serial.println("[WebServer] Configuration reset successful. Rebooting...");
+    
+    // Esperar un momento para que se envíe el mensaje
+    delay(2000);
+    
+    // Reiniciar el ESP32
+    restart(0);
+  } else {
+    DynamicJsonDocument errorDoc(256);
+    errorDoc["type"] = "error";
+    errorDoc["message"] = "Error al restablecer configuración";
+    String error;
+    serializeJson(errorDoc, error);
+    client->text(error);
+    
+    Serial.println("[WebServer] Failed to reset configuration");
+  }
 }
 
 // ============================================================================
