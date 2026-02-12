@@ -1,5 +1,5 @@
 {
-  "mode": "turnstile",
+  "mode": "standalone",
   "wifi_networks": [
     {
       "ssid": "Totalplay-2.4G-a638",
