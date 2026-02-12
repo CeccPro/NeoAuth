@@ -1,7 +1,5 @@
 // ===== MODE MODULE =====
 
-let cardHistory = [];
-
 window.updateModeInfo = function(data) {
     const currentMode = data.current_mode;
     
@@ -21,23 +19,7 @@ window.updateModeInfo = function(data) {
 };
 
 window.loadModePanel = function() {
-    renderCardHistory();
-};
-
-window.handleCardDetected = function(data) {
-    // Solo para eventos de torniquete (access_event)
-    const card = {
-        uid: data.uid,
-        timestamp: data.timestamp || new Date().toISOString(),
-        time: new Date().toLocaleTimeString('es-MX'),
-        user: data.user || null,
-        access_granted: data.access_granted !== false
-    };
-    
-    cardHistory.unshift(card);
-    if (cardHistory.length > 50) cardHistory.pop();
-    
-    renderCardHistory();
+    // Ya no hay historial que renderizar
 };
 
 function updateStandaloneDisplay(user, found) {
@@ -98,91 +80,6 @@ function updateStandaloneDisplay(user, found) {
 }
 
 window.updateStandaloneDisplay = updateStandaloneDisplay;
-
-window.addToCardHistory = function(data) {
-    // Prevenir duplicados - verificar si ya existe la misma tarjeta en los últimos 2 segundos
-    const now = new Date().getTime();
-    const recentDuplicate = cardHistory.find(card => {
-        const cardTime = new Date(card.timestamp).getTime();
-        return card.uid === data.uid && (now - cardTime) < 2000; // 2 segundos
-    });
-    
-    if (recentDuplicate) {
-        return; // No agregar si es duplicado
-    }
-    
-    // Solo agregar al historial
-    const card = {
-        uid: data.uid,
-        timestamp: data.timestamp || new Date().toISOString(),
-        time: new Date().toLocaleTimeString('es-MX'),
-        found: data.found,
-        user_name: data.user_name,
-        user_email: data.user_email,
-        access_granted: data.found
-    };
-    
-    cardHistory.unshift(card);
-    if (cardHistory.length > 50) cardHistory.pop();
-    
-    renderCardHistory();
-};
-
-function renderCardHistory() {
-    const historyDiv = document.getElementById('cardHistory');
-    
-    if (!historyDiv) return;
-    
-    if (cardHistory.length === 0) {
-        historyDiv.innerHTML = `
-            <div class="empty-state">
-                <i class="bi bi-inbox"></i>
-                <p>Esperando detección de tarjetas...</p>
-            </div>
-        `;
-        return;
-    }
-    
-    historyDiv.innerHTML = '';
-    cardHistory.forEach(card => {
-        const item = document.createElement('div');
-        item.className = 'history-item ' + (card.access_granted ? 'granted' : 'denied');
-        
-        let userName = card.user?.name || card.user_name || 'Desconocido';
-        let userEmail = card.user?.email || card.user_email || '';
-        
-        item.innerHTML = `
-            <div class="history-item-info">
-                <div class="history-item-uid">
-                    <i class="bi bi-credit-card-2-front me-2"></i>${card.uid}
-                </div>
-                ${card.found || card.user ? `
-                    <div style="margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.85rem;">
-                        <strong>${userName}</strong>
-                        ${userEmail ? `<br><small>${userEmail}</small>` : ''}
-                    </div>
-                ` : ''}
-                <div class="history-item-time">
-                    <i class="bi bi-clock"></i> ${card.time}
-                </div>
-            </div>
-            <span class="history-item-badge ${card.access_granted ? 'granted' : 'denied'}">
-                <i class="bi ${card.access_granted ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}"></i>
-                ${card.access_granted ? 'Permitido' : 'Denegado'}
-            </span>
-        `;
-        
-        historyDiv.appendChild(item);
-    });
-}
-
-window.clearCardHistory = function() {
-    if (confirm('¿Limpiar el historial de tarjetas?')) {
-        cardHistory = [];
-        renderCardHistory();
-        showToast('Historial', 'Historial limpiado correctamente', 'success');
-    }
-};
 
 // ===== TURNSTILE CONTROLS =====
 window.unlockTurnstile = function() {

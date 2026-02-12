@@ -93,23 +93,6 @@ function handleMessage(data) {
     }
     else if(data.type === 'access_event') {
         // Evento de acceso del torniquete
-        console.log('[access_event] Received:', data);
-        
-        const eventData = {
-            uid: data.uid,
-            access_granted: data.granted,
-            timestamp: data.timestamp,
-            user: data.user || null
-        };
-        
-        console.log('[access_event] Calling handleCardDetected with:', eventData);
-        if (window.handleCardDetected) {
-            window.handleCardDetected(eventData);
-        } else {
-            console.error('[access_event] handleCardDetected not found!');
-        }
-        
-        // Mostrar toast según resultado
         const message = data.granted 
             ? `Acceso concedido: ${data.uid}` 
             : `Acceso denegado: ${data.uid}`;
@@ -117,7 +100,6 @@ function handleMessage(data) {
     }
     else if(data.type === 'identification_event') {
         // Evento de identificación (modo standalone)
-
         if (window.updateStandaloneDisplay) {
             if (data.found) {
                 // Usuario encontrado - mostrar en panel superior
@@ -128,7 +110,6 @@ function handleMessage(data) {
                     metadata: data.user_metadata || {},
                     uid: data.uid
                 };
-                console.log('[identification_event] Calling updateStandaloneDisplay with FOUND user:', user);
                 window.updateStandaloneDisplay(user, true);
                 showToast('Identificación', `¡Bienvenido ${user.name}!`, 'success');
             } else {
@@ -139,23 +120,9 @@ function handleMessage(data) {
                     email: null,
                     metadata: null
                 };
-                console.log('[identification_event] Calling updateStandaloneDisplay with NOT FOUND user:', unknownUser);
                 window.updateStandaloneDisplay(unknownUser, false);
                 showToast('Identificación', `Tarjeta no registrada: ${data.uid}`, 'warning');
             }
-        } else {
-            console.error('[identification_event] window.updateStandaloneDisplay not found!');
-        }
-        
-        // Agregar al historial (UNA SOLA VEZ) - addToCardHistory tiene prevención de duplicados
-        if (window.addToCardHistory) {
-            window.addToCardHistory({
-                uid: data.uid,
-                timestamp: data.timestamp,
-                found: data.found,
-                user_name: data.user_name,
-                user_email: data.user_email
-            });
         }
     }
     else if(data.type === 'success') {

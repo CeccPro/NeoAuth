@@ -38,7 +38,7 @@ i:
 up:
 	@cd $(PROJECT_DIR)/firmware && make up DEVICE=$(DEVICE)
 
-uapi: 
+com: 
 	@git add .
 	@git commit -m "Update"
 	@git push
@@ -55,7 +55,7 @@ erase: e
 test: t
 info: i
 update: up
-update-api: uapi
+commit: com
 
 help:
 	@echo "Comandos disponibles:"
