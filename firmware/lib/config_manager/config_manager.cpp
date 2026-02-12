@@ -174,8 +174,13 @@ bool ConfigManager::setMode(const String& mode) {
     configFile.close();
     return false;
   }
-  
+
   configFile.close();
+  
+  // Actualizar cache con la nueva configuración
+  configCache = std::make_unique<DynamicJsonDocument>(2048);
+  *configCache = doc;
+  
   return true;
 }
 
