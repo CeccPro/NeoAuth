@@ -221,6 +221,23 @@ void WebServerManager::notifyAccessEvent(const String& uid, bool granted) {
   notifyClients(msg);
 }
 
+void WebServerManager::notifyIdentificationEvent(const String& uid, bool found, const String& userName, const String& userEmail) {
+  DynamicJsonDocument doc(512);
+  doc["type"] = "identification_event";
+  doc["uid"] = uid;
+  doc["found"] = found;
+  doc["timestamp"] = millis();
+  
+  if (found) {
+    doc["user_name"] = userName;
+    doc["user_email"] = userEmail;
+  }
+  
+  String msg;
+  serializeJson(doc, msg);
+  notifyClients(msg);
+}
+
 void WebServerManager::periodicTask() {
   // Limpiar clientes WebSocket desconectados
   ws.cleanupClients();
@@ -463,9 +480,12 @@ void WebServerManager::handleSetMode(AsyncWebSocketClient* client, const String&
   SensorMode newMode = stringToMode(mode);
   
   if (modeManager->setMode(newMode)) {
+    // Guardar configuración con el nuevo modo
+    configManager->save(wifiManager->getKnownNetworks(), modeToString(newMode));
+    
     DynamicJsonDocument responseDoc(512);
     responseDoc["type"] = "success";
-    responseDoc["message"] = "Modo cambiado a: " + mode + ". Reinicie el dispositivo para aplicar cambios.";
+    responseDoc["message"] = "Modo cambiado a: " + mode;
     responseDoc["current_mode"] = modeToString(newMode);
     responseDoc["requires_reboot"] = true;
     String response;

@@ -63,6 +63,9 @@ public:
   // Enviar notificación de evento de acceso (torniquete)
   void notifyAccessEvent(const String& uid, bool granted);
   
+  // Enviar notificación de identificación (standalone)
+  void notifyIdentificationEvent(const String& uid, bool found, const String& userName, const String& userEmail);
+  
   // Tareas periódicas (llamar en loop)
   void periodicTask();
 

@@ -313,6 +313,11 @@ void setup() {
   } else if (modeManager.getCurrentMode() == MODE_STANDALONE) {
     Serial.println("Modo standalone activo - solo identificación");
     standaloneMode.begin();
+    
+    // Configurar callback para notificar eventos de identificación
+    standaloneMode.setOnIdentificationCallback([](const String& uid, bool found, const String& userName, const String& userEmail) {
+      webServer.notifyIdentificationEvent(uid, found, userName, userEmail);
+    });
   }
   
   // Configurar callback para notificar conexiones WiFi exitosas

@@ -50,8 +50,8 @@ private:
   
   WiFiClientSecure wifiClient;
   
-  // Generar token de autenticación HMAC-SHA256
-  String generateAuthToken();
+  // Generar token de autenticación HMAC-SHA256 con timestamp
+  String generateAuthToken(const String& timestamp);
 };
 
 #endif // API_CLIENT_H

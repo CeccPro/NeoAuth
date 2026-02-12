@@ -110,8 +110,44 @@ function handleMessage(data) {
             : `Acceso denegado: ${data.uid}`;
         showToast('Torniquete', message, data.granted ? 'success' : 'error');
     }
+    else if(data.type === 'identification_event') {
+        // Evento de identificación (modo standalone)
+        if (data.found && window.updateStandaloneDisplay) {
+            // Si el usuario fue encontrado, mostrarlo en el panel de Usuario Detectado
+            const user = {
+                id: data.user_id || null,
+                name: data.user_name || 'Usuario Desconocido',
+                email: data.user_email || null,
+                metadata: data.user_metadata || {}
+            };
+            window.updateStandaloneDisplay(user);
+            showToast('Identificación', `¡Bienvenido ${user.name}!`, 'success');
+        } else {
+            // Si no se encontró, mostrarlo en el historial como denegado
+            if (window.handleCardDetected) {
+                window.handleCardDetected({
+                    uid: data.uid,
+                    timestamp: data.timestamp,
+                    access_granted: false
+                });
+            }
+            showToast('Identificación', `Tarjeta no registrada: ${data.uid}`, 'warning');
+        }
+        
+        // Siempre agregar al historial
+        addToCardHistory({
+            uid: data.uid,
+            timestamp: data.timestamp,
+            found: data.found,
+            user_name: data.user_name,
+            user_email: data.user_email
+        });
+    }
     else if(data.type === 'success') {
-        showToast('Éxito', data.message, 'success');
+        // Solo mostrar toast si no tiene requires_reboot
+        if (!data.requires_reboot) {
+            showToast('Éxito', data.message, 'success');
+        }
         if(data.reboot) {
             showToast('Reiniciando', 'El dispositivo se reiniciará en 3 segundos...', 'warning');
         }

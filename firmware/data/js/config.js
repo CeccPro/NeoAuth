@@ -5,8 +5,8 @@ window.updateSystemInfo = function(data) {
     const sensorId = document.getElementById('configSensorId');
     const firmware = document.getElementById('configFirmware');
     
-    if (sensorId) sensorId.textContent = data.sensor_id || '-';
-    if (firmware) firmware.textContent = data.firmware_version || '-';
+    if (sensorId) sensorId.value = data.sensor_id || '-';
+    if (firmware) firmware.value = data.firmware_version || '-';
     
     // Actualizar configuración misc
     const modeSelect = document.getElementById('configMode');

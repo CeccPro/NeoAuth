@@ -38,45 +38,68 @@ app.use('/api/', limiter);
 // ============================================================================
 
 /**
- * Genera token de autenticación basado en AUTH_SECRET + SensorID
+ * Genera token de autenticación basado en AUTH_SECRET + SensorID + Timestamp
  */
-function generateAuthToken(sensorId) {
+function generateAuthToken(sensorId, timestamp) {
   const secret = process.env.AUTH_SECRET;
+  const data = sensorId + timestamp;
   return crypto.createHmac('sha256', secret)
-    .update(sensorId)
+    .update(data)
     .digest('hex');
 }
 
 /**
- * Valida el token de autenticación
+ * Valida el token de autenticación con timestamp
  */
-function validateAuthToken(sensorId, providedToken) {
-  const expectedToken = generateAuthToken(sensorId);
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedToken),
-    Buffer.from(providedToken)
-  );
+function validateAuthToken(sensorId, timestamp, providedToken) {
+  // Validar que el timestamp no sea muy antiguo (máximo 5 minutos)
+  const currentTime = Date.now();
+  const requestTime = parseInt(timestamp);
+  const maxAge = 5 * 60 * 1000; // 5 minutos en milisegundos
+  
+  if (isNaN(requestTime)) {
+    console.log('[Auth] Invalid timestamp format');
+    return false;
+  }
+  
+  const age = Math.abs(currentTime - requestTime);
+  if (age > maxAge) {
+    console.log(`[Auth] Timestamp too old: ${age}ms (max: ${maxAge}ms)`);
+    return false;
+  }
+  
+  const expectedToken = generateAuthToken(sensorId, timestamp);
+  
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedToken),
+      Buffer.from(providedToken)
+    );
+  } catch (error) {
+    console.log('[Auth] Token comparison failed:', error.message);
+    return false;
+  }
 }
 
 /**
  * Middleware de autenticación
  */
 async function authenticateSensor(req, res, next) {
-  const { sensor_id, auth_token } = req.body;
+  const { sensor_id, auth_token, timestamp } = req.body;
 
-  if (!sensor_id || !auth_token) {
+  if (!sensor_id || !auth_token || !timestamp) {
     return res.status(401).json({
       status: 'error',
-      message: 'Missing sensor_id or auth_token'
+      message: 'Missing sensor_id, auth_token or timestamp'
     });
   }
 
-  // Validar token
+  // Validar token con timestamp
   try {
-    if (!validateAuthToken(sensor_id, auth_token)) {
+    if (!validateAuthToken(sensor_id, timestamp, auth_token)) {
       return res.status(403).json({
         status: 'error',
-        message: 'Invalid authentication token'
+        message: 'Invalid authentication token or expired timestamp'
       });
     }
   } catch (error) {

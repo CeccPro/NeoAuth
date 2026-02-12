@@ -10,9 +10,6 @@
 APIClient::APIClient(const String& sensorId, const String& authSecret)
   : sensorId(sensorId), authSecret(authSecret), enabled(false), timeout(10000) {
   
-  // Generar token de autenticación
-  authToken = generateAuthToken();
-  
   // Configurar SSL para aceptar certificados (inseguro, pero necesario para muchos casos)
   wifiClient.setInsecure();
 }
@@ -32,8 +29,9 @@ void APIClient::setTimeout(unsigned long timeoutMs) {
   timeout = timeoutMs;
 }
 
-String APIClient::generateAuthToken() {
-  // Generar HMAC-SHA256(auth_secret, sensor_id)
+String APIClient::generateAuthToken(const String& timestamp) {
+  // Generar HMAC-SHA256(auth_secret, sensor_id + timestamp)
+  String data = sensorId + timestamp;
   byte hmacResult[32];
   
   mbedtls_md_context_t ctx;
@@ -42,7 +40,7 @@ String APIClient::generateAuthToken() {
   mbedtls_md_init(&ctx);
   mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
   mbedtls_md_hmac_starts(&ctx, (const unsigned char*)authSecret.c_str(), authSecret.length());
-  mbedtls_md_hmac_update(&ctx, (const unsigned char*)sensorId.c_str(), sensorId.length());
+  mbedtls_md_hmac_update(&ctx, (const unsigned char*)data.c_str(), data.length());
   mbedtls_md_hmac_finish(&ctx, hmacResult);
   mbedtls_md_free(&ctx);
   
@@ -120,9 +118,13 @@ bool APIClient::sendHeartbeat() {
 }
 
 bool APIClient::sendHeartbeat(time_t& unixTime) {
+  String timestamp = String(millis());
+  String token = generateAuthToken(timestamp);
+  
   DynamicJsonDocument payload(256);
   payload["sensor_id"] = sensorId;
-  payload["auth_token"] = authToken;
+  payload["auth_token"] = token;
+  payload["timestamp"] = timestamp;
   
   DynamicJsonDocument response(512);
   
@@ -140,16 +142,36 @@ bool APIClient::sendHeartbeat(time_t& unixTime) {
 }
 
 bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& userName, JsonObject& userMetadata) {
+  Serial.println("\n[APIClient] ========== validateAccess ==========");
+  Serial.println("[APIClient] Validating UID: " + uid);
+  Serial.println("[APIClient] API Enabled: " + String(enabled ? "Yes" : "No"));
+  
+  if (!enabled) {
+    Serial.println("[APIClient] API disabled, denying by default");
+    accessGranted = false;
+    userName = "";
+    return false;
+  }
+  
+  String timestamp = String(millis());
+  String token = generateAuthToken(timestamp);
+  
   DynamicJsonDocument payload(512);
   payload["sensor_id"] = sensorId;
-  payload["auth_token"] = authToken;
+  payload["auth_token"] = token;
   payload["uid"] = uid;
-  payload["timestamp"] = String(millis());
+  payload["timestamp"] = timestamp;
+  
+  Serial.println("[APIClient] Sending request to: " + baseURL + "/api/v1/access");
   
   DynamicJsonDocument response(1024);
   
   if (makeRequest("/api/v1/access", payload, response)) {
     String status = response["status"] | "";
+    String message = response["message"] | "";
+    
+    Serial.println("[APIClient] Response status: " + status);
+    Serial.println("[APIClient] Response message: " + message);
     
     if (status == "ok") {
       accessGranted = true;
@@ -160,14 +182,22 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
         userMetadata = response["user"]["metadata"].as<JsonObject>();
       }
       
-      Serial.println("[APIClient] Access granted for: " + userName);
+      Serial.println("[APIClient] ✓ Access GRANTED for: " + userName);
+      Serial.println("[APIClient] ==========================================\n");
       return true;
     } else if (status == "denied") {
       accessGranted = false;
       userName = "";
-      Serial.println("[APIClient] Access denied");
+      Serial.println("[APIClient] ✗ Access DENIED - Reason: " + message);
+      Serial.println("[APIClient] ==========================================\n");
       return true;
+    } else {
+      Serial.println("[APIClient] ✗ Unexpected status: " + status);
+      Serial.println("[APIClient] ==========================================\n");
     }
+  } else {
+    Serial.println("[APIClient] ✗ API request FAILED");
+    Serial.println("[APIClient] ==========================================\n");
   }
   
   // Si falla la API, denegar acceso por seguridad
@@ -177,11 +207,14 @@ bool APIClient::validateAccess(const String& uid, bool& accessGranted, String& u
 }
 
 bool APIClient::whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata) {
+  String timestamp = String(millis());
+  String token = generateAuthToken(timestamp);
+  
   DynamicJsonDocument payload(512);
   payload["sensor_id"] = sensorId;
-  payload["auth_token"] = authToken;
+  payload["auth_token"] = token;
   payload["uid"] = uid;
-  payload["timestamp"] = String(millis());
+  payload["timestamp"] = timestamp;
   
   DynamicJsonDocument response(1024);
   

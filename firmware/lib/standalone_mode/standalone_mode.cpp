@@ -7,13 +7,17 @@
 #include "standalone_mode.h"
 
 StandaloneMode::StandaloneMode(APIClient* apiClient)
-  : apiClient(apiClient) {
+  : apiClient(apiClient), onIdentificationCallback(nullptr) {
 }
 
 void StandaloneMode::begin() {
   Serial.println("[StandaloneMode] Initializing standalone mode");
   Serial.println("[StandaloneMode] Mode: Identification only (no access control)");
   Serial.println("[StandaloneMode] Ready for card identification");
+}
+
+void StandaloneMode::setOnIdentificationCallback(OnIdentificationCallback callback) {
+  onIdentificationCallback = callback;
 }
 
 void StandaloneMode::handleCardDetected(const String& uid) {
@@ -103,10 +107,25 @@ void StandaloneMode::handleCardDetected(const String& uid) {
           Serial.println("  == Admin user ==");
         }
       }
+      
+      // Notificar al callback si existe
+      if (onIdentificationCallback) {
+        onIdentificationCallback(uid, true, userName, userEmail);
+      }
     } else {
       Serial.println("[StandaloneMode] User not found in database");
+      
+      // Notificar tarjeta no encontrada
+      if (onIdentificationCallback) {
+        onIdentificationCallback(uid, false, "", "");
+      }
     }
   } else {
     Serial.println("[StandaloneMode] API error - could not identify user");
+    
+    // Notificar error
+    if (onIdentificationCallback) {
+      onIdentificationCallback(uid, false, "", "");
+    }
   }
 }

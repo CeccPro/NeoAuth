@@ -37,11 +37,24 @@ window.handleCardDetected = function(data) {
     if (cardHistory.length > 50) cardHistory.pop();
     
     renderCardHistory();
+};
+
+window.updateStandaloneDisplay = updateStandaloneDisplay;
+window.addToCardHistory = function(data) {
+    const card = {
+        uid: data.uid,
+        timestamp: data.timestamp || new Date().toISOString(),
+        time: new Date().toLocaleTimeString('es-MX'),
+        found: data.found,
+        user_name: data.user_name,
+        user_email: data.user_email,
+        access_granted: data.found
+    };
     
-    // Si estamos en modo standalone, mostrar info del usuario
-    if (AppState.config.current_mode === 'standalone' && data.user) {
-        updateStandaloneDisplay(data.user);
-    }
+    cardHistory.unshift(card);
+    if (cardHistory.length > 50) cardHistory.pop();
+    
+    renderCardHistory();
 };
 
 function renderCardHistory() {
@@ -62,42 +75,30 @@ function renderCardHistory() {
     historyDiv.innerHTML = '';
     cardHistory.forEach(card => {
         const item = document.createElement('div');
-        item.className = 'log-item ' + (card.access_granted ? 'granted' : 'denied');
+        item.className = 'history-item ' + (card.access_granted ? 'granted' : 'denied');
         
-        let userInfo = '';
-        if (card.user) {
-            userInfo = `
-                <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">
-                    <strong>${card.user.name || 'Sin nombre'}</strong><br>
-                    <small>UUID: ${card.user.id || '-'}</small><br>
-                    ${card.user.metadata ? `
-                        <small>
-                            ${card.user.metadata.grado ? 'Grado: ' + card.user.metadata.grado : ''}
-                            ${card.user.metadata.grupo ? ' | Grupo: ' + card.user.metadata.grupo : ''}
-                            ${card.user.metadata.is_admin ? ' | <span class="badge bg-warning">Admin</span>' : ''}
-                        </small>
-                    ` : ''}
-                </div>
-            `;
-        }
+        let userName = card.user?.name || card.user_name || 'Desconocido';
+        let userEmail = card.user?.email || card.user_email || '';
         
         item.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <div style="font-family: monospace; font-size: 1.1rem; font-weight: bold;">
-                        <i class="bi bi-credit-card-2-front me-2"></i>${card.uid}
-                    </div>
-                    ${userInfo}
+            <div class="history-item-info">
+                <div class="history-item-uid">
+                    <i class="bi bi-credit-card-2-front me-2"></i>${card.uid}
                 </div>
-                <div class="text-end">
-                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
-                        <i class="bi bi-clock"></i> ${card.time}
+                ${card.found || card.user ? `
+                    <div style="margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.85rem;">
+                        <strong>${userName}</strong>
+                        ${userEmail ? `<br><small>${userEmail}</small>` : ''}
                     </div>
-                    <span class="badge ${card.access_granted ? 'bg-success' : 'bg-danger'} mt-1">
-                        ${card.access_granted ? 'Acceso Permitido' : 'Acceso Denegado'}
-                    </span>
+                ` : ''}
+                <div class="history-item-time">
+                    <i class="bi bi-clock"></i> ${card.time}
                 </div>
             </div>
+            <span class="history-item-badge ${card.access_granted ? 'granted' : 'denied'}">
+                <i class="bi ${card.access_granted ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}"></i>
+                ${card.access_granted ? 'Permitido' : 'Denegado'}
+            </span>
         `;
         
         historyDiv.appendChild(item);
