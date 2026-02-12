@@ -6,14 +6,21 @@ window.updateModeInfo = function(data) {
     // Mostrar/ocultar paneles según el modo
     const standalonePanel = document.getElementById('standalonePanel');
     const turnstilePanel = document.getElementById('turnstilePanel');
+    const adminPanel = document.getElementById('adminPanel');
     
-    if (standalonePanel && turnstilePanel) {
+    if (standalonePanel && turnstilePanel && adminPanel) {
         if (currentMode === 'standalone') {
             standalonePanel.style.display = 'block';
             turnstilePanel.style.display = 'none';
+            adminPanel.style.display = 'none';
         } else if (currentMode === 'turnstile') {
             standalonePanel.style.display = 'none';
             turnstilePanel.style.display = 'block';
+            adminPanel.style.display = 'none';
+        } else if (currentMode === 'admin') {
+            standalonePanel.style.display = 'none';
+            turnstilePanel.style.display = 'none';
+            adminPanel.style.display = 'block';
         }
     }
 };

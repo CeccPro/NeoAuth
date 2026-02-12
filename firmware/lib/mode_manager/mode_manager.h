@@ -16,6 +16,7 @@
 enum SensorMode {
   MODE_STANDALONE,   // Modo standalone: solo lectura y log
   MODE_TURNSTILE,    // Modo torniquete: control de acceso físico
+  MODE_ADMIN,        // Modo administración: gestionar tarjetas y usuarios
   MODE_REGISTRATION, // Modo registro: registrar nuevas tarjetas
   MODE_SYNC          // Modo sincronización: sync con backend
 };

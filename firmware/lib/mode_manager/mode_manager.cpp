@@ -11,6 +11,7 @@ const char* modeToString(SensorMode mode) {
   switch (mode) {
     case MODE_STANDALONE:   return "standalone";
     case MODE_TURNSTILE:    return "turnstile";
+    case MODE_ADMIN:        return "admin";
     case MODE_REGISTRATION: return "registration";
     case MODE_SYNC:         return "sync";
     default:                return "unknown";
@@ -20,6 +21,7 @@ const char* modeToString(SensorMode mode) {
 SensorMode stringToMode(const String& modeStr) {
   if (modeStr == "standalone")   return MODE_STANDALONE;
   if (modeStr == "turnstile")    return MODE_TURNSTILE;
+  if (modeStr == "admin")        return MODE_ADMIN;
   if (modeStr == "registration") return MODE_REGISTRATION;
   if (modeStr == "sync")         return MODE_SYNC;
   return MODE_STANDALONE; // Default

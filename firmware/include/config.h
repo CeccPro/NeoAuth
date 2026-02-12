@@ -7,12 +7,14 @@
  *   Global configuration and constants
  */
 
+#include <Arduino.h>
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
 // Información del sensor
 #define RFID_SENSOR_ID "NEOAUTH_DEMO_SENSOR_001"
-#define FIRMWARE_VERSION "0.1.2"
+#define FIRMWARE_VERSION "0.5.1"
 
 // Configuración del sensor RFID
 #define SS_PIN  5

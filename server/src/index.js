@@ -478,6 +478,252 @@ app.post('/api/v1/reports', authenticateSensor, async (req, res) => {
 });
 
 /**
+ * POST /api/v1/cards
+ * Registrar nueva tarjeta RFID con usuario
+ */
+app.post('/api/v1/cards', authenticateSensor, async (req, res) => {
+  const { sensor_id, uid, user_name, user_email, role, metadata } = req.body;
+
+  if (!uid || !user_name) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Missing required fields: uid, user_name'
+    });
+  }
+
+  // Verificar si la tarjeta ya existe
+  const { data: existingCard } = await supabase
+    .from('rfid_cards')
+    .select('uid')
+    .eq('uid', uid)
+    .single();
+
+  if (existingCard) {
+    return res.status(409).json({
+      status: 'error',
+      message: 'Card already registered'
+    });
+  }
+
+  // Crear usuario
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .insert({
+      name: user_name,
+      email: user_email || null,
+      is_active: true,
+      metadata: metadata || {}
+    })
+    .select()
+    .single();
+
+  if (userError) {
+    console.error('Error creating user:', userError);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to create user'
+    });
+  }
+
+  // Crear tarjeta vinculada al usuario
+  const { data: card, error: cardError } = await supabase
+    .from('rfid_cards')
+    .insert({
+      uid,
+      user_id: user.id,
+      role: role || 'user',
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (cardError) {
+    console.error('Error creating card:', cardError);
+    // Rollback: eliminar usuario creado
+    await supabase.from('users').delete().eq('id', user.id);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to create card'
+    });
+  }
+
+  res.json({
+    status: 'ok',
+    message: 'Card registered successfully',
+    card: {
+      uid: card.uid,
+      user_id: card.user_id,
+      role: card.role,
+      user_name: user.name,
+      user_email: user.email
+    }
+  });
+});
+
+/**
+ * PUT /api/v1/cards/:uid
+ * Actualizar información de tarjeta existente
+ */
+app.put('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
+  const { uid } = req.params;
+  const { user_name, user_email, role, metadata, is_active } = req.body;
+
+  // Buscar tarjeta
+  const { data: card, error: cardError } = await supabase
+    .from('rfid_cards')
+    .select(`
+      *,
+      users (
+        id,
+        name,
+        email,
+        metadata
+      )
+    `)
+    .eq('uid', uid)
+    .single();
+
+  if (cardError || !card) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Card not found'
+    });
+  }
+
+  // Actualizar usuario si se proporcionan datos
+  if (user_name || user_email || metadata) {
+    const updates = {};
+    if (user_name) updates.name = user_name;
+    if (user_email !== undefined) updates.email = user_email;
+    if (metadata) updates.metadata = metadata;
+
+    const { error: userUpdateError } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', card.user_id);
+
+    if (userUpdateError) {
+      console.error('Error updating user:', userUpdateError);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to update user'
+      });
+    }
+  }
+
+  // Actualizar tarjeta si se proporcionan datos
+  if (role !== undefined || is_active !== undefined) {
+    const cardUpdates = {};
+    if (role) cardUpdates.role = role;
+    if (is_active !== undefined) cardUpdates.is_active = is_active;
+
+    const { error: cardUpdateError } = await supabase
+      .from('rfid_cards')
+      .update(cardUpdates)
+      .eq('uid', uid);
+
+    if (cardUpdateError) {
+      console.error('Error updating card:', cardUpdateError);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to update card'
+      });
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    message: 'Card updated successfully'
+  });
+});
+
+/**
+ * DELETE /api/v1/cards/:uid
+ * Eliminar tarjeta (desactivar)
+ */
+app.delete('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
+  const { uid } = req.params;
+  const { permanent } = req.query; // ?permanent=true para eliminación permanente
+
+  if (permanent === 'true') {
+    // Eliminación permanente
+    const { error } = await supabase
+      .from('rfid_cards')
+      .delete()
+      .eq('uid', uid);
+
+    if (error) {
+      console.error('Error deleting card:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to delete card'
+      });
+    }
+  } else {
+    // Desactivar (soft delete)
+    const { error } = await supabase
+      .from('rfid_cards')
+      .update({ is_active: false })
+      .eq('uid', uid);
+
+    if (error) {
+      console.error('Error deactivating card:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to deactivate card'
+      });
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    message: permanent === 'true' ? 'Card deleted permanently' : 'Card deactivated'
+  });
+});
+
+/**
+ * GET /api/v1/cards/:uid
+ * Obtener información completa de una tarjeta
+ */
+app.get('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
+  const { uid } = req.params;
+
+  const { data: card, error } = await supabase
+    .from('rfid_cards')
+    .select(`
+      *,
+      users (
+        id,
+        name,
+        email,
+        is_active,
+        metadata,
+        created_at
+      )
+    `)
+    .eq('uid', uid)
+    .single();
+
+  if (error || !card) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Card not found'
+    });
+  }
+
+  res.json({
+    status: 'ok',
+    card: {
+      uid: card.uid,
+      role: card.role,
+      is_active: card.is_active,
+      created_at: card.created_at,
+      user: card.users
+    }
+  });
+});
+
+/**
  * 404 handler
  */
 app.use((req, res) => {

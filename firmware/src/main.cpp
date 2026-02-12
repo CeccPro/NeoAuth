@@ -20,6 +20,7 @@
 #include <turnstile_mode.h>
 #include <api_client.h>
 #include <standalone_mode.h>
+#include <admin_mode.h>
 #include <time_manager.h>
 
 // ============================================================================
@@ -35,6 +36,7 @@ TimeManager timeManager("");
 SideConn sideconn(SIDECONN_SDA_PIN, SIDECONN_SCL_PIN, SIDECONN_SLAVE_ADDR, MSG_4_BYTES);
 TurnstileMode turnstileMode(&sideconn, &apiClient);
 StandaloneMode standaloneMode(&apiClient);
+AdminMode adminMode(&apiClient);
 
 // ============================================================================
 // CPU USAGE TRACKING
@@ -131,6 +133,8 @@ void handleRFIDCheckCard() {
       turnstileMode.handleCardDetected(uid);
     } else if (currentMode == MODE_STANDALONE) {
       standaloneMode.handleCardDetected(uid);
+    } else if (currentMode == MODE_ADMIN) {
+      adminMode.handleCardDetected(uid);
     }
   }
 }
@@ -362,6 +366,14 @@ void setup() {
     // Configurar callback para notificar eventos de identificación
     standaloneMode.setOnIdentificationCallback([](const String& uid, bool found, const String& userName, const String& userEmail) {
       webServer.notifyIdentificationEvent(uid, found, userName, userEmail);
+    });
+  } else if (modeManager.getCurrentMode() == MODE_ADMIN) {
+    Serial.println("Modo admin activo - gestión de tarjetas");
+    adminMode.begin();
+    
+    // Configurar callback para notificar información de tarjetas
+    adminMode.setOnCardDetectedCallback([](const CardInfo& cardInfo, bool found) {
+      webServer.notifyAdminCardEvent(cardInfo.uid, found, cardInfo.userName, cardInfo.userEmail, cardInfo.role);
     });
   }
   

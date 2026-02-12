@@ -206,6 +206,28 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Admin Mode Panel -->
+                    <div id="adminPanel" style="display: none;">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-10 col-md-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <i class="bi bi-shield-lock-fill"></i> Gestión de Tarjetas y Usuarios
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="adminCardDisplay">
+                                            <div class="empty-state">
+                                                <i class="bi bi-credit-card-2-front"></i>
+                                                <p>Acerca una tarjeta para comenzar</p>
+                                                <small class="text-muted">Las tarjetas conocidas se podrán editar, las nuevas se podrán registrar</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -296,6 +318,7 @@
                                     <select class="form-select" id="configMode">
                                         <option value="standalone">Standalone - Lector Independiente</option>
                                         <option value="turnstile">Torniquete - Control de Acceso</option>
+                                        <option value="admin">Admin - Gestión de Tarjetas</option>
                                     </select>
                                 </div>
                                 <div class="mb-3">
@@ -450,5 +473,6 @@
     <script src="/js/config.js"></script>
     <script src="/js/networks.js"></script>
     <script src="/js/mode.js"></script>
+    <script src="/js/admin.js"></script>
 </body>
 </html>

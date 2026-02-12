@@ -328,6 +328,29 @@ void WebServerManager::handleWebSocketEvent(AsyncWebSocket *server, AsyncWebSock
           else if (command == "reboot") {
             handleReboot(client);
           }
+          else if (command == "registerCard") {
+            JsonVariant uidVar = doc["uid"];
+            JsonVariant userNameVar = doc["user_name"];
+            if (!uidVar.isNull() && !userNameVar.isNull()) {
+              handleRegisterCard(client, uidVar.as<String>(), userNameVar.as<String>(), 
+                               doc["user_email"].as<String>(), doc["role"].as<String>(),
+                               doc["metadata"].as<String>());
+            }
+          }
+          else if (command == "updateCard") {
+            JsonVariant uidVar = doc["uid"];
+            if (!uidVar.isNull()) {
+              handleUpdateCard(client, uidVar.as<String>(), doc["user_name"].as<String>(), 
+                             doc["user_email"].as<String>(), doc["role"].as<String>(),
+                             doc["metadata"].as<String>(), doc["is_active"].as<bool>());
+            }
+          }
+          else if (command == "deleteCard") {
+            JsonVariant uidVar = doc["uid"];
+            if (!uidVar.isNull()) {
+              handleDeleteCard(client, uidVar.as<String>(), doc["permanent"].as<bool>());
+            }
+          }
         }
       }
     }
@@ -696,4 +719,150 @@ void WebServerManager::handleReboot(AsyncWebSocketClient* client) {
   
   // Reiniciar el ESP32 usando power.h
   restart(0);
+}
+
+// ============================================================================
+// NOTIFICACIONES ADMIN MODE
+// ============================================================================
+
+void WebServerManager::notifyAdminCardEvent(const String& uid, bool found, const String& userName, const String& userEmail, const String& role) {
+  DynamicJsonDocument doc(512);
+  doc["type"] = "admin_card_event";
+  doc["uid"] = uid;
+  doc["found"] = found;
+  
+  if (found) {
+    doc["user"]["name"] = userName;
+    doc["user"]["email"] = userEmail;
+    doc["role"] = role;
+  }
+  
+  String message;
+  serializeJson(doc, message);
+  notifyClients(message);
+}
+
+// ============================================================================
+// MANEJADORES ADMIN MODE
+// ============================================================================
+
+void WebServerManager::handleRegisterCard(AsyncWebSocketClient* client, const String& uid, const String& user_name, 
+                                         const String& user_email, const String& role, const String& metadata) {
+  DynamicJsonDocument response(512);
+  
+  // Verificar que tenemos WiFi y API habilitada
+  if (!wifiManager->isConnected()) {
+    response["type"] = "register_card_result";
+    response["success"] = false;
+    response["message"] = "WiFi not connected";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  if (!configManager) {
+    response["type"] = "register_card_result";
+    response["success"] = false;
+    response["message"] = "Configuration not available";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  String apiBaseURL = configManager->getAPIBaseURL();
+  if (apiBaseURL.isEmpty() || !configManager->getAPIEnabled()) {
+    response["type"] = "register_card_result";
+    response["success"] = false;
+    response["message"] = "API not configured or disabled";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  // TODO: Implementar llamada a API para registrar tarjeta
+  // Por ahora simular éxito
+  response["type"] = "register_card_result";
+  response["success"] = true;
+  response["message"] = "Card registration initiated - API call would happen here";
+  response["uid"] = uid;
+  
+  String msg;
+  serializeJson(response, msg);
+  client->text(msg);
+}
+
+void WebServerManager::handleUpdateCard(AsyncWebSocketClient* client, const String& uid, const String& user_name,
+                                       const String& user_email, const String& role, const String& metadata, bool is_active) {
+  DynamicJsonDocument response(512);
+  
+  // Verificar conexiones
+  if (!wifiManager->isConnected()) {
+    response["type"] = "update_card_result";
+    response["success"] = false;
+    response["message"] = "WiFi not connected";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  String apiBaseURL = configManager->getAPIBaseURL();
+  if (apiBaseURL.isEmpty() || !configManager->getAPIEnabled()) {
+    response["type"] = "update_card_result";
+    response["success"] = false;
+    response["message"] = "API not configured or disabled";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  // TODO: Implementar llamada a API para actualizar tarjeta
+  response["type"] = "update_card_result";
+  response["success"] = true;
+  response["message"] = "Card update initiated - API call would happen here";
+  response["uid"] = uid;
+  
+  String msg;
+  serializeJson(response, msg);
+  client->text(msg);
+}
+
+void WebServerManager::handleDeleteCard(AsyncWebSocketClient* client, const String& uid, bool permanent) {
+  DynamicJsonDocument response(512);
+  
+  // Verificar conexiones
+  if (!wifiManager->isConnected()) {
+    response["type"] = "delete_card_result";
+    response["success"] = false;
+    response["message"] = "WiFi not connected";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  String apiBaseURL = configManager->getAPIBaseURL();
+  if (apiBaseURL.isEmpty() || !configManager->getAPIEnabled()) {
+    response["type"] = "delete_card_result";
+    response["success"] = false;
+    response["message"] = "API not configured or disabled";
+    String msg;
+    serializeJson(response, msg);
+    client->text(msg);
+    return;
+  }
+
+  // TODO: Implementar llamada a API para eliminar tarjeta
+  response["type"] = "delete_card_result";
+  response["success"] = true;
+  response["message"] = permanent ? "Card deleted permanently - API call would happen here" : "Card deactivated - API call would happen here";
+  response["uid"] = uid;
+  
+  String msg;
+  serializeJson(response, msg);
+  client->text(msg);
 }

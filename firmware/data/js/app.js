@@ -125,6 +125,20 @@ function handleMessage(data) {
             }
         }
     }
+    else if(data.type === 'admin_card_event') {
+        // Evento de detección de tarjeta en modo admin
+        if (window.updateAdminCardDisplay) {
+            const cardInfo = {
+                uid: data.uid,
+                user_name: data.user_name || '',
+                user_email: data.user_email || '',
+                role: data.role || 'user',
+                is_active: data.is_active !== undefined ? data.is_active : true,
+                metadata: data.metadata || {}
+            };
+            window.updateAdminCardDisplay(cardInfo, data.found);
+        }
+    }
     else if(data.type === 'success') {
         // Solo mostrar toast si no tiene requires_reboot
         if (!data.requires_reboot) {

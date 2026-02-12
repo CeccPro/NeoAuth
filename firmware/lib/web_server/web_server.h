@@ -66,6 +66,9 @@ public:
   // Enviar notificación de identificación (standalone)
   void notifyIdentificationEvent(const String& uid, bool found, const String& userName, const String& userEmail);
   
+  // Enviar notificación de información de tarjeta (admin)
+  void notifyAdminCardEvent(const String& uid, bool found, const String& userName, const String& userEmail, const String& role);
+  
   // Tareas periódicas (llamar en loop)
   void periodicTask();
 
@@ -106,6 +109,13 @@ private:
   
   // Manejadores del sistema
   void handleReboot(AsyncWebSocketClient* client);
+  
+  // Manejadores de admin mode
+  void handleRegisterCard(AsyncWebSocketClient* client, const String& uid, const String& user_name, 
+                         const String& user_email, const String& role, const String& metadata);
+  void handleUpdateCard(AsyncWebSocketClient* client, const String& uid, const String& user_name,
+                       const String& user_email, const String& role, const String& metadata, bool is_active);
+  void handleDeleteCard(AsyncWebSocketClient* client, const String& uid, bool permanent);
 };
 
 #endif // WEB_SERVER_H
