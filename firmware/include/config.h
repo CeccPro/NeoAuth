@@ -49,4 +49,7 @@
 // Configuración del modo torniquete
 #define TURNSTILE_AUTO_LOCK_DELAY 5000  // 5 segundos antes de auto-bloquear
 
+// Declaración de funciones globales
+extern uint8_t getCPUUsage();
+
 #endif // CONFIG_H

@@ -89,7 +89,7 @@ function handleMessage(data) {
     }
     else if(data.type === 'rtc_time') {
         AppState.rtc = data;
-        if (window.updateClock) window.updateClock();
+        // El reloj se actualiza automáticamente cada segundo con JS
     }
     else if(data.type === 'access_event') {
         // Evento de acceso del torniquete
@@ -222,7 +222,7 @@ function switchTab(tabName) {
     // Refrescar datos del tab activo
     if (tabName === 'dashboard') {
         // Inicializar gráficas si no están inicializadas
-        if (window.initCharts && typeof ramChart === 'undefined') {
+        if (window.initCharts && typeof window.ramChart === 'undefined') {
             window.initCharts();
         }
         if (window.updateDashboard) {
@@ -265,7 +265,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Cargar tab inicial
+    // Inicializar charts PRIMERO (con retry si Chart.js no está listo)
+    if (window.initCharts) {
+        console.log('[App] Scheduling chart initialization');
+        // Pequeño delay para asegurar que Chart.js esté cargado
+        setTimeout(() => {
+            window.initCharts();
+        }, 100);
+    }
+    
+    // Inicializar reloj inmediatamente
+    if (window.updateClock) {
+        window.updateClock();
+        console.log('[App] Clock initialized');
+    }
+    
+    // Cargar tab inicial DESPUÉS de inicializar charts
     switchTab('dashboard');
     
     // Actualizar métricas cada 5 segundos
@@ -277,6 +292,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Actualizar reloj cada segundo
     setInterval(() => {
-        if (window.updateClock) window.updateClock();
+        if (window.updateClock) {
+            window.updateClock();
+        }
     }, 1000);
 });

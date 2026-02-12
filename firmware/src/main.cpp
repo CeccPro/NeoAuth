@@ -37,6 +37,16 @@ TurnstileMode turnstileMode(&sideconn, &apiClient);
 StandaloneMode standaloneMode(&apiClient);
 
 // ============================================================================
+// CPU USAGE TRACKING
+// ============================================================================
+struct CPUMetrics {
+  unsigned long totalTime;
+  unsigned long busyTime;
+  unsigned long lastUpdate;
+  uint8_t cpuPercent;
+} cpuMetrics = {0, 0, 0, 0};
+
+// ============================================================================
 // TASK MANAGEMENT (para evitar bloqueos del watchdog)
 // ============================================================================
 enum TaskType {
@@ -48,6 +58,7 @@ enum TaskType {
   TASK_TURNSTILE_PERIODIC,
   TASK_API_HEARTBEAT,
   TASK_TIME_SYNC,
+  TASK_DEBUG_METRICS,
   TASK_COUNT
 };
 
@@ -66,7 +77,8 @@ Task tasks[TASK_COUNT] = {
   {TASK_WEBSERVER_CLEANUP,     0, 2000,   true},  // Cada 2 segundos
   {TASK_TURNSTILE_PERIODIC,    0, 100,    false}, // Cada 100ms (solo en modo torniquete)
   {TASK_API_HEARTBEAT,         0, 300000, false}, // Cada 5 minutos (se activa si API habilitada)
-  {TASK_TIME_SYNC,             0, 60000,  false}  // Cada 1 minuto (se activa si API habilitada)
+  {TASK_TIME_SYNC,             0, 60000,  false}, // Cada 1 minuto (se activa si API habilitada)
+  {TASK_DEBUG_METRICS,         0, 10000,  true}   // Cada 10 segundos (debug)
 };
 
 // ============================================================================
@@ -166,6 +178,28 @@ void handleTimeSyncTask() {
   }
 }
 
+void handleDebugMetricsTask() {
+  // RAM
+  size_t ramTotal = ESP.getHeapSize();
+  size_t ramFree = ESP.getFreeHeap();
+  size_t ramUsed = ramTotal - ramFree;
+  float ramPercent = (ramUsed * 100.0) / ramTotal;
+  
+  // Storage
+  size_t storageTotal = SPIFFS.totalBytes();
+  size_t storageUsed = SPIFFS.usedBytes();
+  float storagePercent = (storageUsed * 100.0) / storageTotal;
+  
+  // CPU
+  uint8_t cpuUsage = getCPUUsage();
+  
+  Serial.println("========== System Metrics ==========");
+  Serial.printf("RAM:     %u KB / %u KB (%.1f%%)\n", ramUsed/1024, ramTotal/1024, ramPercent);
+  Serial.printf("Storage: %u KB / %u KB (%.1f%%)\n", storageUsed/1024, storageTotal/1024, storagePercent);
+  Serial.printf("CPU:     %u%%\n", cpuUsage);
+  Serial.println("====================================");
+}
+
 // ============================================================================
 // TASK SCHEDULER
 // ============================================================================
@@ -209,6 +243,9 @@ void runTasks() {
           break;
         case TASK_TIME_SYNC:
           handleTimeSyncTask();
+          break;
+        case TASK_DEBUG_METRICS:
+          handleDebugMetricsTask();
           break;
         default:
           break;
@@ -400,13 +437,40 @@ void setup() {
 // LOOP
 // ============================================================================
 void loop() {
+  unsigned long loopStart = millis();
+  
   // Ejecutar todas las tareas de forma no bloqueante
   runTasks();
+  
+  // Calcular tiempo de CPU
+  unsigned long loopEnd = millis();
+  unsigned long loopDuration = loopEnd - loopStart;
+  
+  // Actualizar métricas de CPU cada 5 segundos
+  if (loopEnd - cpuMetrics.lastUpdate >= 5000) {
+    unsigned long totalElapsed = loopEnd - cpuMetrics.lastUpdate;
+    if (totalElapsed > 0) {
+      // Calcular porcentaje de tiempo ocupado vs tiempo total
+      cpuMetrics.cpuPercent = (cpuMetrics.busyTime * 100) / totalElapsed;
+      cpuMetrics.cpuPercent = constrain(cpuMetrics.cpuPercent, 0, 100);
+    }
+    cpuMetrics.busyTime = 0;
+    cpuMetrics.lastUpdate = loopEnd;
+  }
+  
+  cpuMetrics.busyTime += loopDuration;
   
   // Pequeño delay para no saturar el CPU
   delay(5);
   
   // Yield adicional para alimentar el watchdog
   yield();
+}
+
+// ============================================================================
+// CPU USAGE GETTER
+// ============================================================================
+uint8_t getCPUUsage() {
+  return cpuMetrics.cpuPercent;
 }
 

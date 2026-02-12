@@ -8,6 +8,7 @@
  */
 
 #include "web_server.h"
+#include "../../include/config.h"
 #include "../wifi_manager/wifi_manager.h"
 #include "../config_manager/config_manager.h"
 #include "../mode_manager/mode_manager.h"
@@ -108,8 +109,8 @@ void WebServerManager::sendSystemMetrics(AsyncWebSocketClient* client) {
   storage["total"] = SPIFFS.totalBytes();
   storage["free"] = SPIFFS.totalBytes() - SPIFFS.usedBytes();
   
-  // CPU usage (placeholder)
-  doc["cpu"] = 0;
+  // CPU usage (desde main.cpp)
+  doc["cpu"] = getCPUUsage();
   
   String response;
   serializeJson(doc, response);
@@ -372,8 +373,8 @@ void WebServerManager::handleGetSystemMetrics(AsyncWebSocketClient* client) {
   storage["total"] = SPIFFS.totalBytes();
   storage["free"] = SPIFFS.totalBytes() - SPIFFS.usedBytes();
   
-  // CPU usage (estimado basado en loop time)
-  response["cpu"] = 0; // Placeholder, difícil de calcular sin OS
+  // CPU usage (desde main.cpp)
+  response["cpu"] = getCPUUsage();
   
   String json;
   serializeJson(response, json);

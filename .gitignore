@@ -9,3 +9,7 @@ firmware/.pio
 # Ignore OS generated files
 .DS_Store
 Thumbs.db
+
+# Ignore backups
+.bak
+.backup

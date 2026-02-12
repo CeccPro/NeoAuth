@@ -141,64 +141,66 @@
 
             <!-- Mode Tab -->
             <div class="tab-pane fade" id="mode-tab">
-                <!-- Standalone Mode Panel -->
-                <div id="standalonePanel" style="display: none;">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-8 col-md-10">
-                            <div class="card">
-                                <div class="card-header">
-                                    <i class="bi bi-person-badge"></i> Última Identificación
-                                </div>
-                                <div class="card-body">
-                                    <div id="standaloneUserDisplay">
-                                        <div class="empty-state">
-                                            <i class="bi bi-person-circle"></i>
-                                            <p>Esperando detección de tarjeta...</p>
+                <div class="container-fluid">
+                    <!-- Standalone Mode Panel -->
+                    <div id="standalonePanel" style="display: none;">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-8 col-md-10">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <i class="bi bi-person-badge"></i> Última Identificación
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="standaloneUserDisplay">
+                                            <div class="empty-state">
+                                                <i class="bi bi-person-circle"></i>
+                                                <p>Esperando detección de tarjeta...</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Turnstile Mode Panel -->
-                <div id="turnstilePanel" style="display: none;">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-6 col-md-8">
-                            <div class="card">
-                                <div class="card-header">
-                                    <i class="bi bi-door-closed-fill"></i> Control del Torniquete
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-4">
-                                        <label class="form-label">Duración del Desbloqueo</label>
-                                        <select class="form-select mb-3" id="unlockDuration">
-                                            <option value="5">5 segundos</option>
-                                            <option value="10">10 segundos</option>
-                                            <option value="15">15 segundos</option>
-                                            <option value="30">30 segundos</option>
-                                            <option value="indefinite">Indefinido (sin auto-lock)</option>
-                                        </select>
+                    <!-- Turnstile Mode Panel -->
+                    <div id="turnstilePanel" style="display: none;">
+                        <div class="row justify-content-center">
+                            <div class="col-lg-6 col-md-8">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <i class="bi bi-door-closed-fill"></i> Control del Torniquete
                                     </div>
+                                    <div class="card-body">
+                                        <div class="mb-4">
+                                            <label class="form-label">Duración del Desbloqueo</label>
+                                            <select class="form-select mb-3" id="unlockDuration">
+                                                <option value="5">5 segundos</option>
+                                                <option value="10">10 segundos</option>
+                                                <option value="15">15 segundos</option>
+                                                <option value="30">30 segundos</option>
+                                                <option value="indefinite">Indefinido (sin auto-lock)</option>
+                                            </select>
+                                        </div>
 
-                                    <div class="d-grid gap-3">
-                                        <button class="btn btn-success btn-lg" onclick="unlockTurnstile()">
-                                            <i class="bi bi-unlock-fill"></i> Desbloquear Torniquete
-                                        </button>
-                                        <button class="btn btn-danger btn-lg" onclick="lockTurnstile()">
-                                            <i class="bi bi-lock-fill"></i> Bloquear Torniquete
-                                        </button>
-                                    </div>
+                                        <div class="d-grid gap-3">
+                                            <button class="btn btn-success btn-lg" onclick="unlockTurnstile()">
+                                                <i class="bi bi-unlock-fill"></i> Desbloquear Torniquete
+                                            </button>
+                                            <button class="btn btn-danger btn-lg" onclick="lockTurnstile()">
+                                                <i class="bi bi-lock-fill"></i> Bloquear Torniquete
+                                            </button>
+                                        </div>
 
-                                    <hr class="my-4">
+                                        <hr class="my-4">
 
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="blockModeToggle" onchange="toggleBlockMode()">
-                                        <label class="form-check-label" for="blockModeToggle">
-                                            <strong>Modo de Bloqueo Total</strong><br>
-                                            <small class="text-muted">Rechaza todas las tarjetas sin verificación</small>
-                                        </label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="blockModeToggle" onchange="toggleBlockMode()">
+                                            <label class="form-check-label" for="blockModeToggle">
+                                                <strong>Modo de Bloqueo Total</strong><br>
+                                                <small class="text-muted">Rechaza todas las tarjetas sin verificación</small>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -442,7 +444,7 @@
 
     <!-- Scripts -->
     <script src="/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/js/chart.min.js" onload="console.log('[Chart.js] Loaded successfully')" onerror="console.error('[Chart.js] Failed to load')"></script>
     <script src="/js/app.js"></script>
     <script src="/js/dashboard.js"></script>
     <script src="/js/config.js"></script>

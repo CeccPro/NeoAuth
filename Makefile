@@ -6,7 +6,7 @@ BUILD_PIO = ~/.platformio/penv/bin/platformio
 DEVICE = /dev/ttyUSB0
 
 # Nombres cortos
-d: 
+d:
 	@cd $(PROJECT_DIR)/firmware && make d DEVICE=$(DEVICE)
 
 f:

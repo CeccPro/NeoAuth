@@ -57,7 +57,7 @@ function updateCharts() {
     const metrics = AppState.systemMetrics;
     
     // Actualizar RAM Chart
-    if (window.ramChart) {
+    if (window.ramChart && window.ramChart.data) {
         const ramUsed = metrics.ram.used || 0;
         const ramFree = (metrics.ram.total || 0) - ramUsed;
         window.ramChart.data.datasets[0].data = [ramUsed, ramFree];
@@ -65,7 +65,7 @@ function updateCharts() {
     }
     
     // Actualizar Storage Chart
-    if (window.storageChart) {
+    if (window.storageChart && window.storageChart.data) {
         const storageUsed = metrics.storage.used || 0;
         const storageFree = (metrics.storage.total || 0) - storageUsed;
         window.storageChart.data.datasets[0].data = [storageUsed, storageFree];
@@ -73,9 +73,13 @@ function updateCharts() {
     }
     
     // Actualizar CPU Chart
-    if (window.cpuChart) {
-        window.cpuChart.data.datasets[0].data = [metrics.cpu || 0];
+    if (window.cpuChart && window.cpuChart.data) {
+        const cpuValue = metrics.cpu || 0;
+        console.log('[Dashboard] Updating CPU chart with value:', cpuValue);
+        window.cpuChart.data.datasets[0].data = [cpuValue];
         window.cpuChart.update('none');
+    } else {
+        console.warn('[Dashboard] CPU chart not initialized');
     }
 }
 
@@ -85,18 +89,31 @@ window.updateClock = function() {
     
     if (!clockTime || !clockDate) return;
     
-    if (AppState.rtc.synced) {
-        clockTime.textContent = AppState.rtc.time;
-        clockDate.textContent = AppState.rtc.date;
-    } else {
-        // Fallback a hora local del navegador
-        const now = new Date();
-        clockTime.textContent = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        clockDate.textContent = now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    }
+    // Usar hora local del navegador
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    
+    clockTime.textContent = `${displayHours}:${minutes}:${seconds} ${ampm}`;
+    
+    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    clockDate.textContent = `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
 };
 
 function initCharts() {
+    // Verificar que Chart.js esté disponible
+    if (typeof Chart === 'undefined') {
+        console.warn('[Dashboard] Chart.js not loaded yet, retrying...');
+        setTimeout(initCharts, 100);
+        return;
+    }
+    
+    console.log('[Dashboard] Initializing charts...');
+    
     // Destruir charts existentes si los hay
     if (window.ramChart && typeof window.ramChart.destroy === 'function') {
         window.ramChart.destroy();
@@ -219,9 +236,9 @@ function initCharts() {
             }
         });
     }
+    
+    console.log('[Dashboard] All charts initialized successfully');
 }
 
-// Inicializar charts cuando el dashboard se carga
-document.addEventListener('DOMContentLoaded', function() {
-    initCharts();
-});
+// Exponer initCharts globalmente
+window.initCharts = initCharts;

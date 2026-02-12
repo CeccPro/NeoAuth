@@ -25,6 +25,11 @@ void StandaloneMode::handleCardDetected(const String& uid) {
   
   if (!apiClient || !apiClient->isEnabled()) {
     Serial.println("[StandaloneMode] API not configured - card logged only");
+    
+    // Aún así notificar al panel web para mostrar el UID
+    if (onIdentificationCallback) {
+      onIdentificationCallback(uid, false, "", "");
+    }
     return;
   }
   
