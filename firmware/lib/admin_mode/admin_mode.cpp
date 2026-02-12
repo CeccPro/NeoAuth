@@ -60,13 +60,18 @@ void AdminMode::handleCardDetected(const String& uid) {
 }
 
 bool AdminMode::fetchCardInfo(const String& uid, CardInfo& cardInfo) {
-  // Usar whoIs para obtener información básica
+  // Usar getCardInfo para obtener información completa
   bool found = false;
+  String userId = "";
   String userName = "";
   String userEmail = "";
-  JsonObject userMetadata;
+  String role = "";
+  bool isActive = false;
   
-  if (!apiClient->whoIs(uid, found, userName, userEmail, userMetadata)) {
+  DynamicJsonDocument metadataDoc(512);
+  JsonObject userMetadata = metadataDoc.to<JsonObject>();
+  
+  if (!apiClient->getCardInfo(uid, found, userId, userName, userEmail, role, isActive, userMetadata)) {
     Serial.println("[AdminMode] API error fetching card info");
     return false;
   }
@@ -79,20 +84,22 @@ bool AdminMode::fetchCardInfo(const String& uid, CardInfo& cardInfo) {
     cardInfo.userEmail = "";
     cardInfo.role = "";
     cardInfo.isActive = false;
+    cardInfo.metadata = "{}";
     return false;
   }
   
   // Extraer información
   cardInfo.uid = uid;
+  cardInfo.userId = userId;
   cardInfo.userName = userName;
   cardInfo.userEmail = userEmail;
+  cardInfo.role = role;
+  cardInfo.isActive = isActive;
   
-  // TODO: La API debe devolver más info (user_id, role, is_active, metadata)
-  // Por ahora usar valores por defecto
-  cardInfo.userId = "";  // TODO: Obtener de API
-  cardInfo.role = userMetadata["role"] | "user";
-  cardInfo.isActive = true;  // TODO: Obtener de API
-  cardInfo.metadata = userMetadata;
+  // Serializar metadata a String
+  String metadataStr;
+  serializeJson(userMetadata, metadataStr);
+  cardInfo.metadata = metadataStr;
   
   return true;
 }

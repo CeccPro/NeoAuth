@@ -251,3 +251,155 @@ bool APIClient::testConnection() {
   Serial.println("[APIClient] Testing connection to: " + baseURL);
   return sendHeartbeat();
 }
+
+bool APIClient::getCardInfo(const String& uid, bool& found, String& userId, String& userName, String& userEmail, String& role, bool& isActive, JsonObject& metadata) {
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
+  String token = generateAuthToken(timestamp);
+  
+  DynamicJsonDocument payload(512);
+  payload["sensor_id"] = sensorId;
+  payload["auth_token"] = token;
+  payload["uid"] = uid;
+  payload["timestamp"] = timestamp;
+  
+  DynamicJsonDocument response(2048);
+  
+  if (makeRequest("/api/v1/cards/" + uid, payload, response)) {
+    String status = response["status"] | "";
+    
+    if (status == "ok") {
+      found = true;
+      JsonObject card = response["card"];
+      JsonObject user = card["user"];
+      
+      userId = user["id"] | "";
+      userName = user["name"] | "Unknown";
+      userEmail = user["email"] | "";
+      role = card["role"] | "user";
+      isActive = card["is_active"] | false;
+      metadata = user["metadata"] | JsonObject();
+      
+      Serial.println("[APIClient] Card info retrieved: " + userName);
+      return true;
+    } else if (status == "error") {
+      found = false;
+      Serial.println("[APIClient] Card not found");
+      return true;
+    }
+  }
+  
+  found = false;
+  return false;
+}
+
+bool APIClient::registerCard(const String& uid, const String& userName, const String& userEmail, const String& role, const String& metadata) {
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
+  String token = generateAuthToken(timestamp);
+  
+  DynamicJsonDocument payload(2048);
+  payload["sensor_id"] = sensorId;
+  payload["auth_token"] = token;
+  payload["uid"] = uid;
+  payload["user_name"] = userName;
+  payload["user_email"] = userEmail;
+  payload["role"] = role;
+  payload["timestamp"] = timestamp;
+  
+  // Parsear metadata JSON si existe
+  if (!metadata.isEmpty()) {
+    DynamicJsonDocument metadataDoc(512);
+    DeserializationError error = deserializeJson(metadataDoc, metadata);
+    if (!error) {
+      payload["metadata"] = metadataDoc.as<JsonObject>();
+    }
+  }
+  
+  DynamicJsonDocument response(1024);
+  
+  if (makeRequest("/api/v1/cards", payload, response)) {
+    String status = response["status"] | "";
+    if (status == "ok") {
+      Serial.println("[APIClient] Card registered successfully");
+      return true;
+    } else {
+      String message = response["message"] | "Unknown error";
+      Serial.println("[APIClient] Failed to register card: " + message);
+    }
+  }
+  
+  return false;
+}
+
+bool APIClient::updateCard(const String& uid, const String& userName, const String& userEmail, const String& role, const String& metadata, bool isActive) {
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
+  String token = generateAuthToken(timestamp);
+  
+  DynamicJsonDocument payload(2048);
+  payload["sensor_id"] = sensorId;
+  payload["auth_token"] = token;
+  payload["user_name"] = userName;
+  payload["user_email"] = userEmail;
+  payload["role"] = role;
+  payload["is_active"] = isActive;
+  payload["timestamp"] = timestamp;
+  
+  // Parsear metadata JSON si existe
+  if (!metadata.isEmpty()) {
+    DynamicJsonDocument metadataDoc(512);
+    DeserializationError error = deserializeJson(metadataDoc, metadata);
+    if (!error) {
+      payload["metadata"] = metadataDoc.as<JsonObject>();
+    }
+  }
+  
+  DynamicJsonDocument response(1024);
+  String endpoint = "/api/v1/cards/" + uid + "/update";
+  
+  if (makeRequest(endpoint, payload, response)) {
+    String status = response["status"] | "";
+    if (status == "ok") {
+      Serial.println("[APIClient] Card updated successfully");
+      return true;
+    } else {
+      String message = response["message"] | "Unknown error";
+      Serial.println("[APIClient] Failed to update card: " + message);
+    }
+  }
+  
+  return false;
+}
+
+bool APIClient::deleteCard(const String& uid, bool permanent) {
+  // Obtener timestamp Unix en milisegundos
+  time_t now = time(nullptr);
+  String timestamp = String((unsigned long long)now * 1000ULL);
+  String token = generateAuthToken(timestamp);
+  
+  DynamicJsonDocument payload(512);
+  payload["sensor_id"] = sensorId;
+  payload["auth_token"] = token;
+  payload["permanent"] = permanent;
+  payload["timestamp"] = timestamp;
+  
+  DynamicJsonDocument response(1024);
+  String endpoint = "/api/v1/cards/" + uid + "/delete";
+  
+  if (makeRequest(endpoint, payload, response)) {
+    String status = response["status"] | "";
+    if (status == "ok") {
+      Serial.println("[APIClient] Card deleted successfully");
+      return true;
+    } else {
+      String message = response["message"] | "Unknown error";
+      Serial.println("[APIClient] Failed to delete card: " + message);
+    }
+  }
+  
+  return false;
+}

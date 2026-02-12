@@ -345,6 +345,7 @@ void setup() {
   webServer.setModeManager(&modeManager);
   webServer.setTurnstileMode(&turnstileMode);
   webServer.setTimeManager(&timeManager);
+  webServer.setAPIClient(&apiClient);
   
   // Inicializar modo según configuración
   if (modeManager.getCurrentMode() == MODE_TURNSTILE) {
@@ -373,7 +374,7 @@ void setup() {
     
     // Configurar callback para notificar información de tarjetas
     adminMode.setOnCardDetectedCallback([](const CardInfo& cardInfo, bool found) {
-      webServer.notifyAdminCardEvent(cardInfo.uid, found, cardInfo.userName, cardInfo.userEmail, cardInfo.role);
+      webServer.notifyAdminCardEvent(cardInfo.uid, found, cardInfo.userName, cardInfo.userEmail, cardInfo.role, cardInfo.isActive, cardInfo.metadata);
     });
   }
   

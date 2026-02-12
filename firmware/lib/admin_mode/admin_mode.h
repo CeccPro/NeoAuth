@@ -23,7 +23,7 @@ struct CardInfo {
   String userEmail;
   String role;
   bool isActive;
-  JsonObject metadata;
+  String metadata; // JSON serializado como String
 };
 
 class AdminMode {

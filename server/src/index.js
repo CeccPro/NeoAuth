@@ -638,6 +638,83 @@ app.put('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
 });
 
 /**
+ * POST /api/v1/cards/:uid/update
+ * Actualizar información de tarjeta existente - Alternativa POST para ESP32
+ */
+app.post('/api/v1/cards/:uid/update', authenticateSensor, async (req, res) => {
+  const { uid } = req.params;
+  const { user_name, user_email, role, metadata, is_active } = req.body;
+
+  // Buscar tarjeta
+  const { data: card, error: cardError } = await supabase
+    .from('rfid_cards')
+    .select(`
+      *,
+      users (
+        id,
+        name,
+        email,
+        metadata
+      )
+    `)
+    .eq('uid', uid)
+    .single();
+
+  if (cardError || !card) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Card not found'
+    });
+  }
+
+  // Actualizar usuario si se proporcionan datos
+  if (user_name || user_email || metadata) {
+    const updates = {};
+    if (user_name) updates.name = user_name;
+    if (user_email !== undefined) updates.email = user_email;
+    if (metadata) updates.metadata = metadata;
+
+    const { error: userUpdateError } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', card.user_id);
+
+    if (userUpdateError) {
+      console.error('Error updating user:', userUpdateError);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to update user'
+      });
+    }
+  }
+
+  // Actualizar tarjeta si se proporcionan datos
+  if (role !== undefined || is_active !== undefined) {
+    const cardUpdates = {};
+    if (role) cardUpdates.role = role;
+    if (is_active !== undefined) cardUpdates.is_active = is_active;
+
+    const { error: cardUpdateError } = await supabase
+      .from('rfid_cards')
+      .update(cardUpdates)
+      .eq('uid', uid);
+
+    if (cardUpdateError) {
+      console.error('Error updating card:', cardUpdateError);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to update card'
+      });
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    message: 'Card updated successfully'
+  });
+});
+
+/**
  * DELETE /api/v1/cards/:uid
  * Eliminar tarjeta (desactivar)
  */
@@ -682,10 +759,54 @@ app.delete('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
 });
 
 /**
- * GET /api/v1/cards/:uid
+ * POST /api/v1/cards/:uid/delete
+ * Eliminar tarjeta (desactivar) - Alternativa POST para ESP32
+ */
+app.post('/api/v1/cards/:uid/delete', authenticateSensor, async (req, res) => {
+  const { uid } = req.params;
+  const { permanent } = req.body; // permanent desde body en POST
+
+  if (permanent === true) {
+    // Eliminación permanente
+    const { error } = await supabase
+      .from('rfid_cards')
+      .delete()
+      .eq('uid', uid);
+
+    if (error) {
+      console.error('Error deleting card:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to delete card'
+      });
+    }
+  } else {
+    // Desactivar (soft delete)
+    const { error } = await supabase
+      .from('rfid_cards')
+      .update({ is_active: false })
+      .eq('uid', uid);
+
+    if (error) {
+      console.error('Error deactivating card:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to deactivate card'
+      });
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    message: permanent === true ? 'Card deleted permanently' : 'Card deactivated'
+  });
+});
+
+/**
+ * POST /api/v1/cards/:uid
  * Obtener información completa de una tarjeta
  */
-app.get('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
+app.post('/api/v1/cards/:uid', authenticateSensor, async (req, res) => {
   const { uid } = req.params;
 
   const { data: card, error } = await supabase

@@ -41,6 +41,7 @@ public:
   void setModeManager(ModeManager* modeMgr);
   void setTurnstileMode(TurnstileMode* turnstileModePtr);
   void setTimeManager(TimeManager* timeMgr);
+  void setAPIClient(class APIClient* apiClientPtr);
   
   // Notificar a todos los clientes WebSocket
   void notifyClients(const String& message);
@@ -67,7 +68,7 @@ public:
   void notifyIdentificationEvent(const String& uid, bool found, const String& userName, const String& userEmail);
   
   // Enviar notificación de información de tarjeta (admin)
-  void notifyAdminCardEvent(const String& uid, bool found, const String& userName, const String& userEmail, const String& role);
+  void notifyAdminCardEvent(const String& uid, bool found, const String& userName, const String& userEmail, const String& role, bool isActive, const String& metadata);
   
   // Tareas periódicas (llamar en loop)
   void periodicTask();
@@ -81,6 +82,7 @@ private:
   
   WiFiManager* wifiManager;
   ConfigManager* configManager;
+  class APIClient* apiClient;
   const char* sensorId;
   const char* firmwareVersion;
   

@@ -34,6 +34,12 @@ public:
   bool validateAccess(const String& uid, bool& accessGranted, String& userName, JsonObject& userMetadata);
   bool whoIs(const String& uid, bool& found, String& userName, String& userEmail, JsonObject& userMetadata);
   
+  // Admin Mode endpoints
+  bool getCardInfo(const String& uid, bool& found, String& userId, String& userName, String& userEmail, String& role, bool& isActive, JsonObject& metadata);
+  bool registerCard(const String& uid, const String& userName, const String& userEmail, const String& role, const String& metadata);
+  bool updateCard(const String& uid, const String& userName, const String& userEmail, const String& role, const String& metadata, bool isActive);
+  bool deleteCard(const String& uid, bool permanent = false);
+  
   // Test de conectividad
   bool testConnection();
   
