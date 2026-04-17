@@ -12,9 +12,14 @@
 
 #include <Wire.h>
 #include <Arduino.h>
+#include <Servo.h>
 
 #define I2C_SLAVE_ADDRESS 0x08
-#define LED_PIN 2
+#define SERVO_PIN 9
+
+// Ángulos del servomotor
+#define SERVO_LOCKED 90      // Bloqueado
+#define SERVO_UNLOCKED 0     // Desbloqueado
 
 // Comandos (deben coincidir con el ESP32)
 #define CMD_UNLOCK 0x01
@@ -30,9 +35,16 @@ uint8_t lastCommand = 0x00;
 uint8_t responseBuffer[4];
 bool responseReady = false;
 
+// Servomotor
+Servo turnstileServo;
+
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT);
+  
+  // Inicializar servomotor
+  turnstileServo.attach(SERVO_PIN);
+  turnstileServo.write(SERVO_LOCKED);  // Posición inicial: bloqueado (90°)
+  delay(500);  // Esperar a que el servo alcance la posición
   
   // Inicializar I2C como slave
   Wire.begin(I2C_SLAVE_ADDRESS);
@@ -47,7 +59,6 @@ void setup() {
   Serial.println("TORNIQUETE BLOQUEADO");
   locked = true;
   unlockTime = 0;
-  digitalWrite(LED_PIN, HIGH);
 }
 
 void loop() {
@@ -56,7 +67,7 @@ void loop() {
     if (millis() - unlockTime >= autoLockDelay) {
       // Tiempo cumplido, bloquear automáticamente
       locked = true;
-      digitalWrite(LED_PIN, HIGH);
+      turnstileServo.write(SERVO_LOCKED);
       unlockTime = 0;
       autoLockDelay = 0;
       Serial.println("AUTO-BLOQUEO: Torniquete bloqueado automáticamente");
@@ -111,7 +122,7 @@ void processCommand(uint8_t cmd, uint16_t param) {
     case CMD_UNLOCK:
       locked = false;
       unlockTime = millis();
-      digitalWrite(LED_PIN, LOW);
+      turnstileServo.write(SERVO_UNLOCKED);
       
       if (param == 0x0000) {
         // Desbloqueo indefinido
@@ -130,7 +141,7 @@ void processCommand(uint8_t cmd, uint16_t param) {
       locked = true;
       unlockTime = 0;
       autoLockDelay = 0;
-      digitalWrite(LED_PIN, HIGH);
+      turnstileServo.write(SERVO_LOCKED);
       Serial.println("TORNIQUETE BLOQUEADO (manual)");
       break;
       
