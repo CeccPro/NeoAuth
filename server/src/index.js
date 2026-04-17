@@ -893,7 +893,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log('='.repeat(50));
-  console.log('NeoAuth API Server');
+  console.log('NeoAuth API Server v2.0');
   console.log('='.repeat(50));
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
