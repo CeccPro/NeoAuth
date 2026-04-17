@@ -2,6 +2,6 @@
 set -e
 
 echo "Starting NeoAuth Server..."
-cd "$(dirname "$0")"
+cd server
 npm install
 npm start
