@@ -1,5 +1,5 @@
 {
-  "mode": "standalone",
+  "mode": "turnstile",
   "wifi_networks": [
     {
       "ssid": "Totalplay-2.4G-a638",
@@ -8,6 +8,18 @@
     {
       "ssid": "CeccPro",
       "password": "pokis1214"
+    },
+    {
+      "ssid": "POCO F7",
+      "password": "123456789"
+    },
+    {
+      "ssid": "VINCULACION",
+      "password": "2022VINCULACION"
+    },
+    {
+      "ssid": "IZZI-204C",
+      "password": "ScteHUHH"
     }
   ],
   "api": {

@@ -15,7 +15,7 @@
 #include <Servo.h>
 
 #define I2C_SLAVE_ADDRESS 0x08
-#define SERVO_PIN 9
+#define DATA_PIN 9
 
 // Ángulos del servomotor
 #define SERVO_LOCKED 90      // Bloqueado
@@ -27,6 +27,11 @@
 #define CMD_STATUS 0x03
 #define CMD_PING   0x04
 
+#define USE_SERVO // Usar servo, o de lo contrario usar LED (Igual por pin 9 digital)
+
+#define UNLOCKED_LED HIGH
+#define LOCKED_LED LOW
+
 // Estado
 bool locked = true;
 unsigned long unlockTime = 0;       // Timestamp de cuándo se desbloqueó
@@ -35,17 +40,25 @@ uint8_t lastCommand = 0x00;
 uint8_t responseBuffer[4];
 bool responseReady = false;
 
-// Servomotor
-Servo turnstileServo;
+#ifdef USE_SERVO
+  // Servomotor
+  Servo turnstileServo;
+#endif
 
 void setup() {
   Serial.begin(115200);
-  
-  // Inicializar servomotor
-  turnstileServo.attach(SERVO_PIN);
-  turnstileServo.write(SERVO_LOCKED);  // Posición inicial: bloqueado (90°)
-  delay(500);  // Esperar a que el servo alcance la posición
-  
+
+  #ifdef USE_SERVO
+    // Inicializar servomotor
+    turnstileServo.attach(DATA_PIN);
+    turnstileServo.write(SERVO_LOCKED);  // Posición inicial: bloqueado (90°)
+    delay(500);  // Esperar a que el servo alcance la posición
+  #endif
+
+  #ifndef USE_SERVO
+    pinMode(DATA_PIN, OUTPUT);
+  #endif
+
   // Inicializar I2C como slave
   Wire.begin(I2C_SLAVE_ADDRESS);
   Wire.onReceive(receiveEvent);
@@ -67,7 +80,15 @@ void loop() {
     if (millis() - unlockTime >= autoLockDelay) {
       // Tiempo cumplido, bloquear automáticamente
       locked = true;
-      turnstileServo.write(SERVO_LOCKED);
+      
+      #ifdef USE_SERVO
+        turnstileServo.write(SERVO_LOCKED);
+      #endif
+
+      #ifndef USE_SERVO
+        digitalWrite(DATA_PIN, LOCKED_LED);
+      #endif
+      
       unlockTime = 0;
       autoLockDelay = 0;
       Serial.println("AUTO-BLOQUEO: Torniquete bloqueado automáticamente");
@@ -122,7 +143,14 @@ void processCommand(uint8_t cmd, uint16_t param) {
     case CMD_UNLOCK:
       locked = false;
       unlockTime = millis();
-      turnstileServo.write(SERVO_UNLOCKED);
+
+      #ifdef USE_SERVO
+        turnstileServo.write(SERVO_UNLOCKED);
+      #endif
+
+      #ifndef USE_SERVO
+        digitalWrite(DATA_PIN, UNLOCKED_LED);
+      #endif
       
       if (param == 0x0000) {
         // Desbloqueo indefinido
@@ -141,7 +169,14 @@ void processCommand(uint8_t cmd, uint16_t param) {
       locked = true;
       unlockTime = 0;
       autoLockDelay = 0;
-      turnstileServo.write(SERVO_LOCKED);
+      
+      #ifdef USE_SERVO
+        turnstileServo.write(SERVO_LOCKED);
+      #endif
+
+      #ifndef USE_SERVO
+        digitalWrite(DATA_PIN, LOCKED_LED);
+      #endif
       Serial.println("TORNIQUETE BLOQUEADO (manual)");
       break;
       

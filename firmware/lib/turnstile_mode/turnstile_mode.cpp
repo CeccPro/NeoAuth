@@ -185,12 +185,7 @@ void TurnstileMode::onAccessDenied(const String& uid) {
 }
 
 void TurnstileMode::periodicTask() {
-  // Auto-bloquear el torniquete después del delay configurado
-  // Si autoLockDelay es 0, no hacer auto-lock (desbloqueo indefinido)
-  if (isUnlocked && autoLockDelay > 0 && (millis() - unlockTime >= autoLockDelay)) {
-    Serial.println("[TurnstileMode] Auto-lock timeout reached");
-    lockTurnstile();
-  }
+  return;
 }
 
 void TurnstileMode::addAuthorizedCard(const String& uid) {
